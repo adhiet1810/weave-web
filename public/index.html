@@ -134,8 +134,11 @@
   .dimform .df-add{background:var(--ink);color:var(--page);border:none;cursor:pointer;font-weight:600}
   .relpicker{position:fixed;z-index:60;transform:translateX(-50%);background:var(--canvas);border:1px solid var(--hairline-strong);border-radius:8px;padding:6px;box-shadow:var(--sh-5);display:flex;flex-direction:column;gap:3px}
   .relpicker .rp-h{font-family:'IBM Plex Mono';font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);padding:2px 6px 4px}
-  .relpicker button{font-family:'IBM Plex Mono';font-size:10.5px;text-align:left;background:var(--canvas);border:1px solid var(--hairline);border-radius:5px;padding:5px 9px;cursor:pointer;color:var(--body);white-space:nowrap}
+  .relpicker button{font-family:'IBM Plex Mono';font-size:10.5px;text-align:left;background:var(--canvas);border:1px solid var(--hairline);border-radius:5px;padding:6px 9px;cursor:pointer;color:var(--body);white-space:nowrap;display:flex;flex-direction:column;gap:2px;min-width:198px}
   .relpicker button:hover{color:var(--ink);background:var(--inset);border-color:var(--hairline-strong)}
+  .relpicker .rl-n{font-weight:600;color:var(--ink)}
+  .relpicker .rl-n em{font-style:normal;font-weight:400;color:var(--create);font-size:9px}
+  .relpicker .rl-d{font-family:'Inter',system-ui,sans-serif;font-size:10px;color:var(--mute);letter-spacing:0;text-transform:none;white-space:normal;line-height:1.3}
   .node.connect-src{box-shadow:0 0 0 2px var(--create),var(--sh-2)!important}
   .capture{position:relative;font-size:12px;line-height:1.4;color:var(--body);background:var(--canvas);border:1px solid var(--hairline);border-radius:6px;padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:.13s;box-shadow:var(--sh-2)}
   .capture:hover{border-color:var(--hairline-strong);color:var(--ink)}
@@ -153,6 +156,9 @@
   .k-syn{background:var(--create-wash);border:1.5px solid var(--create);border-radius:50%}
   .k-gap{border:1.5px dashed var(--gap);border-radius:50%}
   .lg-row .sw{width:22px;height:0;flex:0 0 22px}
+  .st{width:17px;height:17px;flex:0 0 17px;border-radius:50%;display:inline-block;box-sizing:border-box}
+  .st-open{background:transparent;border:2px dashed var(--body)}
+  .st-distilled{background:var(--body)}
   .sw.sv{border-top:2px solid var(--solve)}
   .sw.cr{border-top:2px solid var(--create)}
   .sw.sh{border-top:2px dashed var(--create)}
@@ -552,6 +558,12 @@
       <div class="lg-row"><span class="lg-node k-seed"></span>Seed</div>
       <div class="lg-row"><span class="lg-node k-syn"></span>Synthesis</div>
       <div class="lg-row"><span class="lg-node k-gap"></span>Gap</div>
+      </div>
+
+      <div class="lg-states">
+      <h4 style="margin-top:18px">Node states</h4>
+      <div class="lg-row"><span class="st st-open"></span>Open — still a question</div>
+      <div class="lg-row"><span class="st st-distilled"></span>Distilled — a settled claim</div>
       </div>
 
       <h4 style="margin-top:20px">Edges</h4>
@@ -1174,16 +1186,27 @@ function endConnect(){
   document.querySelectorAll('.node.connect-src').forEach(e=>e.classList.remove('connect-src'));
   const cb=document.getElementById('connectBtn'); if(cb){ cb.textContent='⇢ connect to…'; cb.classList.remove('on'); }
 }
+const REL_GLOSS={
+  decomposes:'break into testable sub-parts',
+  answers:'resolves into a solution',
+  blocks:'an external wall stops this',
+  sparks:'one idea inspires another',
+  combines:'fuse into a new whole',
+  refines:'a cleaner restatement',
+  shares:'share a dimension (cost, time…)'
+};
 function showRelPicker(src,tgt){
   document.querySelectorAll('.relpicker').forEach(p=>p.remove());
   const tel=nodesEl.querySelector('.node[data-id="'+tgt+'"]'); if(!tel||!NODES[src]||!NODES[tgt])return;
   const r=tel.getBoundingClientRect();
   const sug=suggestRel(NODES[src].kind,NODES[tgt].kind);
-  const rels=[sug].concat(['decomposes','answers','sparks','combines','blocks','shares'].filter(x=>x!==sug));
+  const rels=[sug].concat(['decomposes','answers','sparks','combines','blocks','shares','refines'].filter(x=>x!==sug));
   const m=document.createElement('div'); m.className='relpicker';
   m.style.left=(r.left+r.width/2)+'px'; m.style.top=(r.bottom+7)+'px';
   m.innerHTML='<div class="rp-h">'+NODES[src].kind+' → '+NODES[tgt].kind+'</div>';
-  rels.forEach((rl,i)=>{ const btn=document.createElement('button'); btn.textContent=rl+(i===0?' · suggested':''); btn.addEventListener('click',ev=>{ ev.stopPropagation(); addEdge(src,tgt,rl); endConnect(); }); m.appendChild(btn); });
+  rels.forEach((rl,i)=>{ const btn=document.createElement('button');
+    btn.innerHTML='<span class="rl-n">'+rl+(i===0?' <em>· suggested</em>':'')+'</span><span class="rl-d">'+(REL_GLOSS[rl]||'')+'</span>';
+    btn.addEventListener('click',ev=>{ ev.stopPropagation(); addEdge(src,tgt,rl); endConnect(); }); m.appendChild(btn); });
   document.body.appendChild(m);
 }
 document.getElementById('connectBtn').addEventListener('click',ev=>{
