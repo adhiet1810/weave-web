@@ -520,7 +520,7 @@
   <div class="titlebar">
     <div class="lights"><i></i><i></i><i></i></div>
     <div class="app-id">WE<b>A</b>VE</div>
-    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename">Untitled</span><span class="projacts"><button id="btnLoadExample" class="pjbtn" title="Replace this project with the example graph">⟳ Load example</button><button id="btnNewProject" class="pjbtn" title="Start a new blank project">＋ New</button></span></div>
+    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename">Untitled</span><span class="projacts"><button id="btnExport" class="pjbtn" title="Export this project as a Markdown file">⬇ Export</button><button id="btnLoadExample" class="pjbtn" title="Replace this project with the example graph">⟳ Load example</button><button id="btnNewProject" class="pjbtn" title="Start a new blank project">＋ New</button></span></div>
   </div>
 
   <div class="toolbar">
@@ -1587,6 +1587,78 @@ function applyProject(g){
   const nm = (g && g.project && g.project.name) || 'Untitled';
   const el = document.getElementById('projName'); if(el) el.textContent = nm;
 }
+/* ---- export the project as a Markdown context file ---- */
+function buildMarkdown(g){
+  const nm = (g.project && g.project.name) || 'Weave project';
+  const nodes = g.nodes || [], struct = g.structural || [], dim = g.dimensional || [];
+  const byId = {}; nodes.forEach(n => byId[n.id] = n);
+  const isOpen = n => (n.freeform || n.state === 'freeform');
+  const cf = n => (n.confidence != null ? Number(n.confidence).toFixed(2) : '—');
+  const L = [];
+  L.push('# ' + nm);
+  L.push('');
+  L.push('> Exported from **Weave**, a reasoning graph. Nodes are typed — problem, hypothesis, solution, seed, synthesis, gap. Edges are reasoning moves: `decomposes` (break into sub-parts), `answers` (resolves into a solution), `blocks` (an external wall), `sparks` (inspires a new idea), `combines` (fuses into a synthesis), `shares` (a shared dimension). A node\'s **distillate** is its settled one-line claim; **confidence** (0–1) is how settled it is; **open** nodes are still questions. The structure *is* the argument — read the relationships, not just the text. Use this file to set context, or to help resolve the open questions listed at the end.');
+  L.push('');
+  L.push('## Reasoning structure');
+  L.push('');
+  const inc = {}; struct.forEach(e => { inc[e.to] = (inc[e.to] || 0) + 1; });
+  const seen = new Set();
+  function walk(id, rel, depth){
+    const n = byId[id]; if(!n) return;
+    const tag = '[' + n.kind + (isOpen(n) ? ' · open' : '') + ']';
+    const dist = n.distillate ? (' — ' + n.distillate) : '';
+    const c = n.confidence != null ? (' _(conf ' + cf(n) + ')_') : '';
+    L.push('  '.repeat(depth) + '- ' + (rel ? ('`' + rel + '` → ') : '') + tag + ' **' + n.title + '**' + dist + c);
+    if(seen.has(id)) return; seen.add(id);
+    struct.filter(e => e.src === id).forEach(e => walk(e.to, e.rel, depth + 1));
+  }
+  nodes.filter(n => !inc[n.id]).forEach(n => walk(n.id, '', 0));
+  nodes.filter(n => !seen.has(n.id)).forEach(n => walk(n.id, '', 0));
+  L.push('');
+  L.push('## Nodes');
+  L.push('');
+  nodes.forEach(n => {
+    L.push('### [' + n.kind + '] ' + n.title);
+    L.push('- **State:** ' + (isOpen(n) ? 'open (still a question)' : (n.state || 'distilled')));
+    L.push('- **Confidence:** ' + cf(n));
+    L.push('- **Distillate:** ' + (n.distillate || '—'));
+    if(n.facets && n.facets.length){
+      L.push('- **Dimensions:** ' + n.facets.map(f => f.name + ' (' + (f.semantic || 'informational') + ')' + (f.distillate ? (': ' + f.distillate) : '')).join('; '));
+    }
+    L.push('');
+    L.push(n.body && n.body.trim() ? n.body.trim() : '_(no notes yet)_');
+    L.push('');
+  });
+  if(struct.length || dim.length){
+    L.push('## Relationships');
+    L.push('');
+    struct.forEach(e => { const a = byId[e.src], b = byId[e.to]; if(a && b) L.push('- ' + a.kind + ' "' + a.title + '" — `' + e.rel + '` → ' + b.kind + ' "' + b.title + '"' + (e.note ? (' _(' + e.note + ')_') : '')); });
+    dim.forEach(e => { const a = byId[e.src], b = byId[e.to_id]; if(a && b) L.push('- ' + a.kind + ' "' + a.title + '"' + (e.from ? (' [' + e.from + ']') : '') + ' — `' + e.rel + '` → ' + b.kind + ' "' + b.title + '"' + (e.to_facet ? (' [' + e.to_facet + ']') : '') + (e.note ? (' _(' + e.note + ')_') : '')); });
+    L.push('');
+  }
+  const opens = nodes.filter(n => isOpen(n) || (n.confidence != null && n.confidence < 0.35));
+  if(opens.length){
+    L.push('## Open questions (unresolved / low confidence)');
+    L.push('');
+    opens.forEach(n => L.push('- [' + n.kind + '] ' + n.title + (n.confidence != null ? (' (conf ' + cf(n) + ')') : '')));
+    L.push('');
+  }
+  L.push('---');
+  L.push('_' + nodes.length + ' nodes · ' + struct.length + ' structural + ' + dim.length + ' dimensional edges._');
+  return L.join('\n');
+}
+function exportMarkdown(){
+  const g = WEAVE_GRAPH;
+  if(!g || !(g.nodes || []).length){ flash('Nothing to export yet — add a node first.'); return; }
+  const md = buildMarkdown(g);
+  const base = (((g.project && g.project.name) || 'weave').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) || 'weave';
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = base + '.md';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  flash('Exported ' + base + '.md');
+}
 async function doLoadExample(){
   if(!confirm('Load the example graph? This replaces the current project.')) return;
   flash('Loading example…');
@@ -1610,6 +1682,7 @@ async function doRename(){
 function wireProjectBar(){
   const n = document.getElementById('projName'); if(n) n.addEventListener('click', doRename);
   const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', doLoadExample);
+  const ex = document.getElementById('btnExport'); if(ex) ex.addEventListener('click', exportMarkdown);
   const np = document.getElementById('btnNewProject'); if(np) np.addEventListener('click', doNewProject);
 }
 
