@@ -78,6 +78,16 @@ async function apply(db, op, a) {
       await db.prepare("UPDATE nodes SET title=?, updated=? WHERE vault_id=? AND id=?")
         .bind(a.title ?? null, now(), VAULT, a.id).run();
       return;
+    case "editNode": // full-field edit (leaves lean/cluster/created untouched)
+      await db.prepare(
+        `UPDATE nodes SET title=?, kind=?, region=?, state=?, distillate_text=?, distillate_confidence=?, distillate_updated=?, body=?, updated=?
+         WHERE vault_id=? AND id=?`
+      ).bind(
+        a.title ?? null, a.kind ?? null, a.region ?? null, a.state ?? "freeform",
+        a.distillate ?? null, a.confidence ?? null, (a.distillate ? now() : null),
+        a.body ?? null, now(), VAULT, a.id
+      ).run();
+      return;
     case "changeKind":
       await db.prepare("UPDATE nodes SET kind=?, region=?, updated=? WHERE vault_id=? AND id=?")
         .bind(a.kind, a.region ?? null, now(), VAULT, a.id).run();

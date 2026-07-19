@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#f6f5f2">
+<meta name="apple-mobile-web-app-title" content="Weave">
 <title>Weave — unified shell · mono</title>
 <!-- fonts inlined below for offline / Tauri — zero network requests -->
 <style>
@@ -453,6 +460,28 @@
     .sheet-handle .sx{margin-left:auto;font-size:17px;color:var(--mute);cursor:pointer;background:none;border:none;line-height:1}
   }
 
+  #editModal{position:fixed;inset:0;z-index:9700;display:none;align-items:center;justify-content:center;background:rgba(10,12,16,.5)}
+  #editModal.on{display:flex}
+  #editModal .em-card{width:440px;max-width:calc(100vw - 28px);max-height:88vh;overflow:auto;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:14px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:'Inter',system-ui,sans-serif}
+  #editModal h3{font-size:15px;margin:0 0 2px;color:var(--ink,#111);letter-spacing:-.3px}
+  #editModal .em-sub{font-family:'IBM Plex Mono';font-size:9.5px;letter-spacing:.4px;color:var(--mute,#999);margin-bottom:8px}
+  #editModal label{display:block;font-size:10px;font-family:'IBM Plex Mono';letter-spacing:.4px;text-transform:uppercase;color:var(--mute,#999);margin:13px 0 5px}
+  #editModal input[type=text],#editModal textarea,#editModal select{width:100%;box-sizing:border-box;background:var(--canvas,#fafafa);border:1px solid var(--hairline,#ddd);border-radius:7px;color:var(--ink,#111);padding:9px 11px;font-family:'Inter',sans-serif;font-size:12.5px;outline:none}
+  #editModal textarea{resize:vertical;min-height:56px;line-height:1.5}
+  #editModal input:focus,#editModal textarea:focus,#editModal select:focus{border-color:var(--hairline-strong,#999)}
+  #editModal .em-kinds{display:flex;gap:6px}
+  #editModal .emk{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-size:9px;font-weight:700;color:#fff;cursor:pointer;border:2px solid transparent;transition:transform .1s}
+  [data-theme="dark"] #editModal .emk{color:#0e1217}
+  #editModal .emk:hover{transform:scale(1.12)}
+  #editModal .emk.sel{border-color:var(--ink,#111)}
+  #editModal .em-conf{display:flex;align-items:center;gap:10px}
+  #editModal .em-conf input[type=range]{flex:1}
+  #editModal .em-conf .emcv{font-family:'IBM Plex Mono';font-size:11px;color:var(--body,#444);min-width:34px;text-align:right}
+  #editModal .em-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+  #editModal .em-actions button{font-size:12px;border-radius:7px;padding:8px 15px;cursor:pointer;font-family:'Inter',sans-serif}
+  #editModal .em-cancel{background:transparent;border:1px solid var(--hairline,#ddd);color:var(--body,#444)}
+  #editModal .em-save{background:var(--ink,#141414);color:var(--page,#fff);border:none;font-weight:600}
+
   #ctxMenu{position:fixed;z-index:9500;min-width:186px;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:10px;padding:5px;box-shadow:0 14px 38px rgba(0,0,0,.24);font-family:'Inter',system-ui,sans-serif;display:none}
   #ctxMenu.on{display:block}
   #ctxMenu .ci{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;font-size:12.5px;color:var(--ink,#111);cursor:pointer;white-space:nowrap}
@@ -681,11 +710,11 @@ function syncThemeColors(){ C_SOLVE=themeVar('--solve'); C_CREATE=themeVar('--cr
 
 /* ============ data ============ */
 /* ============ data (ingested from weave-core) ============ */
-let NODES={}, STRUCT=[], FEDGES=[], THREADS={}, INBOX=[];
+let NODES={}, STRUCT=[], FEDGES=[], THREADS={}, INBOX=[], NODEDATA={};
 let GAP_ID=null, SEED_ID=null, SYN_ID=null, SEAM=null;
 function shortv(f){ const t=(f.distillate||f.name||''); return t.length>26?t.slice(0,26)+'…':t; }
 function ingest(g){
-  NODES={}; STRUCT=[]; FEDGES=[]; THREADS={};
+  NODES={}; STRUCT=[]; FEDGES=[]; THREADS={}; NODEDATA={};
   const SC={x:245,y:300}, CC={x:750,y:300};
   GAP_ID=(g.nodes.find(n=>n.kind==='gap')||{}).id||null;
   SYN_ID=(g.nodes.find(n=>n.kind==='synthesis')||{}).id||null;
@@ -703,6 +732,7 @@ function ingest(g){
         msgs:[['ai', f.distillate||'(no note yet)']], dist:f.distillate||null, conf:Math.round((f.confidence||0)*100), stale:'live'};
     });
     NODES[n.id]={kind:n.kind, region:n.region, t:n.title, x, y, facets, fresh:!!n.freeform};
+    NODEDATA[n.id]=n;
     THREADS[n.id]={eyebrow:n.kind+' · '+n.id, msgs:n.body?[['ai',n.body]]:[], dist:n.distillate||null, conf:Math.round((n.confidence||0)*100), stale:n.freeform?'freeform':'live'};
   }
   if(GAP_ID){
@@ -1701,7 +1731,7 @@ function showCtx(id, x, y){
     m.appendChild(d);
   };
   item('◎', 'Open in panel', () => { sel = id; render(); showThreadFor(id); });
-  item('✎', 'Rename…', () => ctxRename(id));
+  item('✎', 'Edit…', () => openEdit(id));
   item('⇢', 'Connect to…', () => beginConnectFrom(id));
   item('＋', 'Add dimension…', () => ctxAddDim(id));
   const sep = document.createElement('div'); sep.className = 'sep'; m.appendChild(sep);
@@ -1723,6 +1753,73 @@ function showCtx(id, x, y){
   if(py + mh > window.innerHeight - 8) py = window.innerHeight - mh - 8;
   m.style.left = Math.max(8, px) + 'px'; m.style.top = Math.max(8, py) + 'px';
 }
+/* ---- full node editor (title, kind, distillate, confidence, body, state) ---- */
+let _editId = null, _editKind = null;
+function editEls(){
+  let m = document.getElementById('editModal');
+  if(!m){
+    m = document.createElement('div'); m.id = 'editModal';
+    m.innerHTML =
+      '<div class="em-card">' +
+        '<h3 id="emTitleHead">Edit node</h3><div class="em-sub" id="emSub"></div>' +
+        '<label>Title</label><input type="text" id="emTitle">' +
+        '<label>Kind</label><div class="em-kinds" id="emKinds"></div>' +
+        '<label>State</label><select id="emState"><option value="freeform">freeform — loose, not yet distilled</option><option value="distilled">distilled — has a settled distillate</option></select>' +
+        '<label>Distillate — the one-line settled claim</label><textarea id="emDist" rows="2"></textarea>' +
+        '<label>Confidence</label><div class="em-conf"><input type="range" id="emConf" min="0" max="100" step="1"><span class="emcv" id="emConfV">0%</span></div>' +
+        '<label>Notes / body</label><textarea id="emBody" rows="4"></textarea>' +
+        '<div class="em-actions"><button class="em-cancel" id="emCancel">Cancel</button><button class="em-save" id="emSave">Save</button></div>' +
+      '</div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', ev => { if(ev.target === m) m.classList.remove('on'); });
+    m.querySelector('#emCancel').addEventListener('click', () => m.classList.remove('on'));
+    m.querySelector('#emSave').addEventListener('click', saveEdit);
+    m.querySelector('#emConf').addEventListener('input', e => { m.querySelector('#emConfV').textContent = e.target.value + '%'; });
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && m.classList.contains('on')) m.classList.remove('on'); });
+  }
+  return m;
+}
+function openEdit(id){
+  const n = NODES[id]; if(!n) return;
+  const nd = (typeof NODEDATA !== 'undefined' && NODEDATA[id]) || {};
+  const m = editEls(); _editId = id; _editKind = n.kind;
+  m.querySelector('#emSub').textContent = (KIND_LETTER[n.kind] || '?') + ' · ' + id;
+  m.querySelector('#emTitle').value = n.t || '';
+  const kwrap = m.querySelector('#emKinds'); kwrap.innerHTML = '';
+  KIND_LIST.forEach(k => {
+    const d = document.createElement('span'); d.className = 'emk' + (k === _editKind ? ' sel' : '');
+    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = k;
+    d.addEventListener('click', () => { _editKind = k; kwrap.querySelectorAll('.emk').forEach(x => x.classList.toggle('sel', x.title === k)); });
+    kwrap.appendChild(d);
+  });
+  const state = nd.state || (n.fresh ? 'freeform' : 'distilled');
+  m.querySelector('#emState').value = (state === 'capture' ? 'freeform' : state);
+  const dist = (nd.distillate != null ? nd.distillate : ((THREADS[id] && THREADS[id].dist) || '')) || '';
+  m.querySelector('#emDist').value = dist;
+  const conf = nd.confidence != null ? Math.round(nd.confidence * 100) : ((THREADS[id] && THREADS[id].conf) || 0);
+  m.querySelector('#emConf').value = conf; m.querySelector('#emConfV').textContent = conf + '%';
+  m.querySelector('#emBody').value = (nd.body != null ? nd.body : '') || '';
+  m.classList.add('on');
+  setTimeout(() => m.querySelector('#emTitle').focus(), 30);
+}
+function saveEdit(){
+  const id = _editId; if(!id || !NODES[id]) return;
+  const m = document.getElementById('editModal');
+  const title = m.querySelector('#emTitle').value.trim() || NODES[id].t;
+  const kind = _editKind || NODES[id].kind;
+  const region = KIND_REGION[kind] || NODES[id].region;
+  const state = m.querySelector('#emState').value;
+  const dist = m.querySelector('#emDist').value.trim();
+  const conf = parseInt(m.querySelector('#emConf').value, 10) / 100;
+  const body = m.querySelector('#emBody').value;
+  NODES[id].t = title; NODES[id].kind = kind; NODES[id].region = region; NODES[id].fresh = (state === 'freeform');
+  if(THREADS[id]){ THREADS[id].dist = dist || null; THREADS[id].conf = Math.round(conf * 100); THREADS[id].stale = (state === 'freeform' ? 'freeform' : 'live'); }
+  if(typeof NODEDATA !== 'undefined' && NODEDATA[id]){ const nd = NODEDATA[id]; nd.title = title; nd.kind = kind; nd.region = region; nd.state = state; nd.distillate = dist || null; nd.confidence = conf; nd.body = body; nd.freeform = (state === 'freeform'); }
+  m.classList.remove('on');
+  render(); showThreadFor(id);
+  WV.mutate('editNode', { id, title, kind, region, state, distillate: dist || null, confidence: conf, body }).catch(()=>{});
+}
+
 function wireContextMenu(){
   if(typeof nodesEl === 'undefined' || !nodesEl) return;
   nodesEl.addEventListener('contextmenu', ev => {
