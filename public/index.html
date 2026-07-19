@@ -172,7 +172,7 @@
   .rail .scoutseg{width:100%}
   .rail .scoutseg button{flex:1;justify-content:center;padding:7px 6px}
   /* canvas */
-  .canvas-wrap{flex:1 1 auto;position:relative;overflow:hidden;background:var(--page)}
+  .canvas-wrap{flex:1 1 auto;position:relative;overflow:hidden;background:var(--page);touch-action:none}
   .grid-bg{position:absolute;inset:0;background-image:linear-gradient(var(--hairline) 1px,transparent 1px),linear-gradient(90deg,var(--hairline) 1px,transparent 1px);background-size:34px 34px;opacity:.5;mask-image:radial-gradient(circle at 48% 45%,#000 60%,transparent 95%)}
   .stagefit{position:absolute;inset:0}
   .stage{position:relative;width:1010px;height:590px;flex:0 0 auto;transform-origin:center}
@@ -441,6 +441,14 @@
   body.mode-simple #scout, body.mode-simple #scoutBadge, body.mode-simple #scoutMarker{display:none!important}
   body.mode-simple #dimBtn, body.mode-simple #dimForm{display:none!important}
   #advToggle.on{color:var(--create);border-color:var(--create)}
+  /* node action row (visible edit/connect/delete in the panel) */
+  #connectBtn, #dimBtn, #dimForm{display:none!important}
+  #nodeActions{display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:9px 14px 8px;border-bottom:1px solid var(--hairline);background:var(--canvas)}
+  #nodeActions .na{font-family:'Inter',system-ui,sans-serif;font-size:11.5px;background:var(--page);border:1px solid var(--hairline);border-radius:7px;padding:5px 10px;cursor:pointer;color:var(--ink);white-space:nowrap}
+  #nodeActions .na:hover{border-color:var(--hairline-strong)}
+  #nodeActions .na.on{border-color:var(--create);color:var(--create)}
+  #nodeActions .na.danger{color:var(--k-gap)}
+  #nodeActions .na.danger:hover{border-color:var(--k-gap)}
   /* guided next-step chips */
   #nextChips{display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--hairline);background:var(--canvas)}
   #nextChips .nc-h{font-family:'IBM Plex Mono';font-size:9px;letter-spacing:.4px;text-transform:uppercase;color:var(--mute);margin-right:2px}
@@ -1498,6 +1506,35 @@ window.addEventListener('pointerup',ev=>{
   dragId=null; window.__dragId=null; _press=null; _wrap.classList.remove('panning');
 });
 
+/* --- two-finger pinch-to-zoom (touch) --- */
+let _pinch=null;
+function _tDist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
+function _tMid(t){ return { x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2 }; }
+_wrap.addEventListener('touchstart',ev=>{
+  if(document.getElementById('matrixview').classList.contains('on')) return;
+  if(ev.touches.length===2){
+    ev.preventDefault();
+    _press=null; dragId=null; window.__dragId=null; _wrap.classList.remove('panning'); // cancel any 1-finger pan/drag
+    const r=_wrap.getBoundingClientRect(), m=_tMid(ev.touches);
+    _pinch={ d0:_tDist(ev.touches), s0:view.scale, mx:m.x-r.left, my:m.y-r.top, px:view.panX, py:view.panY, cx0:m.x, cy0:m.y };
+  }
+},{passive:false});
+_wrap.addEventListener('touchmove',ev=>{
+  if(_pinch && ev.touches.length===2){
+    ev.preventDefault();
+    const d=_tDist(ev.touches); if(!d || !_pinch.d0) return;
+    const ns=Math.max(0.3, Math.min(2.2, _pinch.s0 * (d/_pinch.d0)));
+    const m=_tMid(ev.touches);
+    // zoom around the pinch midpoint, and follow the fingers if they slide (two-finger pan)
+    view.panX = (_pinch.mx - (_pinch.mx - _pinch.px) * (ns/_pinch.s0)) + (m.x - _pinch.cx0);
+    view.panY = (_pinch.my - (_pinch.my - _pinch.py) * (ns/_pinch.s0)) + (m.y - _pinch.cy0);
+    view.scale = ns; applyView();
+  }
+},{passive:false});
+function _endPinch(ev){ if(!ev.touches || ev.touches.length<2){ _pinch=null; } }
+_wrap.addEventListener('touchend',_endPinch);
+_wrap.addEventListener('touchcancel',_endPinch);
+
 /* --- hover: highlight neighbors, dim the rest --- */
 let hoverId=null;
 nodesEl.addEventListener('pointerover',ev=>{ const el=ev.target.closest('.node'); if(!el)return; if(expanded.size)return; hoverId=el.dataset.id; _applyHover(); });
@@ -1792,7 +1829,25 @@ function updateNextChips(key){
   moves.forEach(mv => { const c = document.createElement('button'); c.className = 'nc'; c.textContent = mv.label;
     c.addEventListener('click', ev => { ev.stopPropagation(); addLinkedNode(id, mv); }); bar.appendChild(c); });
 }
-if(typeof showThreadFor === 'function'){ const _stf = showThreadFor; showThreadFor = function(k){ _stf(k); try{ updateNextChips(k); }catch(e){} }; }
+function updateNodeActions(key){
+  const insp = document.querySelector('.inspect'); if(!insp) return;
+  let bar = document.getElementById('nodeActions');
+  if(!bar){
+    bar = document.createElement('div'); bar.id = 'nodeActions';
+    const handle = insp.querySelector('.sheet-handle');
+    insp.insertBefore(bar, handle ? handle.nextSibling : insp.firstChild);
+  }
+  const id = (key || '').split('.')[0]; const n = NODES[id];
+  if(!n){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex'; bar.innerHTML = '';
+  const mk = (label, fn, cls) => { const b = document.createElement('button'); b.className = 'na' + (cls ? ' ' + cls : ''); b.textContent = label; b.addEventListener('click', ev => { ev.stopPropagation(); fn(); }); bar.appendChild(b); };
+  const connecting = (typeof connectMode !== 'undefined' && connectMode);
+  mk('✎ Edit', () => openEdit(id));
+  mk(connecting ? '⇢ Cancel' : '⇢ Connect', () => { if(typeof connectMode !== 'undefined' && connectMode){ endConnect(); } else { beginConnectFrom(id); } setTimeout(() => updateNodeActions(sel), 0); }, connecting ? 'on' : '');
+  if(!document.body.classList.contains('mode-simple')) mk('＋ Dimension', () => ctxAddDim(id));
+  mk('🗑 Delete', () => deleteNode(id), 'danger');
+}
+if(typeof showThreadFor === 'function'){ const _stf = showThreadFor; showThreadFor = function(k){ _stf(k); try{ updateNextChips(k); }catch(e){} try{ updateNodeActions(k); }catch(e){} }; }
 
 /* ---- simple / advanced mode ---- */
 function applyMode(){
