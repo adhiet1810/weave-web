@@ -1,0 +1,14 @@
+name = "weave-web"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+# D1 binding. After `wrangler d1 create weave`, paste the printed database_id here
+# (and/or set it in the Cloudflare Pages project settings).
+[[d1_databases]]
+binding = "DB"
+database_name = "weave"
+database_id = "REPLACE_WITH_DATABASE_ID"
+
+# Optional: pin a default model. Overridable per-request.
+[vars]
+OPENROUTER_MODEL = "anthropic/claude-3.5-sonnet"

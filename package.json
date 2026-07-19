@@ -1,0 +1,17 @@
+{
+  "name": "weave-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Weave — a folder-as-truth reasoning graph, on Cloudflare Pages + D1 + OpenRouter",
+  "scripts": {
+    "dev": "wrangler pages dev public --d1=DB",
+    "db:init": "wrangler d1 execute weave --local --file=./migrations/0001_init.sql",
+    "db:seed": "wrangler d1 execute weave --local --file=./migrations/0002_seed.sql",
+    "db:init:remote": "wrangler d1 execute weave --remote --file=./migrations/0001_init.sql",
+    "db:seed:remote": "wrangler d1 execute weave --remote --file=./migrations/0002_seed.sql",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
