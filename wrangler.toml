@@ -2,12 +2,11 @@ name = "weave-web"
 compatibility_date = "2024-11-01"
 pages_build_output_dir = "public"
 
-# D1 binding. After `wrangler d1 create weave`, paste the printed database_id here
-# (and/or set it in the Cloudflare Pages project settings).
+# D1 binding. Pages reads this on deploy (wrangler.toml is the source of truth).
 [[d1_databases]]
 binding = "DB"
 database_name = "weave"
-database_id = "REPLACE_WITH_DATABASE_ID"
+database_id = "35899352-7575-46d0-8336-6e6ddef2fd85"
 
 # Optional: pin a default model. Overridable per-request.
 [vars]
