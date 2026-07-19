@@ -74,6 +74,14 @@ async function apply(db, op, a) {
       await db.prepare("DELETE FROM captures WHERE vault_id=? AND id=?").bind(VAULT, a.captureId).run();
       await apply(db, "upsertNode", { node: a.node });
       return;
+    case "renameNode":
+      await db.prepare("UPDATE nodes SET title=?, updated=? WHERE vault_id=? AND id=?")
+        .bind(a.title ?? null, now(), VAULT, a.id).run();
+      return;
+    case "changeKind":
+      await db.prepare("UPDATE nodes SET kind=?, region=?, updated=? WHERE vault_id=? AND id=?")
+        .bind(a.kind, a.region ?? null, now(), VAULT, a.id).run();
+      return;
     case "renameProject":
       await db.prepare(
         `INSERT INTO projects (vault_id,name,created) VALUES (?,?,?)

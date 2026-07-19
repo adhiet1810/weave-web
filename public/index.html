@@ -425,6 +425,21 @@
   #emptyState .card p{font-size:12.5px;line-height:1.5;margin:0 0 14px}
   #emptyState .card button{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:#fff;background:var(--create,#7c50e0);border:none;border-radius:7px;padding:9px 15px;cursor:pointer}
 
+  #ctxMenu{position:fixed;z-index:9500;min-width:186px;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:10px;padding:5px;box-shadow:0 14px 38px rgba(0,0,0,.24);font-family:'Inter',system-ui,sans-serif;display:none}
+  #ctxMenu.on{display:block}
+  #ctxMenu .ci{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;font-size:12.5px;color:var(--ink,#111);cursor:pointer;white-space:nowrap}
+  #ctxMenu .ci:hover{background:var(--canvas,#f2f2f2)}
+  #ctxMenu .ci .ic{width:15px;text-align:center;color:var(--mute,#888);font-size:12px}
+  #ctxMenu .ci.danger{color:var(--k-gap,#e03131)}
+  #ctxMenu .ci.danger .ic{color:var(--k-gap,#e03131)}
+  #ctxMenu .sep{height:1px;background:var(--hairline,#eee);margin:4px 4px}
+  #ctxMenu .ck-head{font-family:'IBM Plex Mono';font-size:8.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--mute,#999);padding:5px 10px 3px;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+  #ctxMenu .ckrow{display:flex;gap:5px;padding:2px 10px 6px}
+  #ctxMenu .ckdot{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-size:8px;font-weight:700;color:#fff;cursor:pointer;border:2px solid transparent;transition:transform .1s}
+  [data-theme="dark"] #ctxMenu .ckdot{color:#0e1217}
+  #ctxMenu .ckdot:hover{transform:scale(1.15)}
+  #ctxMenu .ckdot.cur{border-color:var(--ink,#111)}
+
   #tourOverlay{position:fixed;inset:0;z-index:10000;display:none}
   #tourOverlay.on{display:block}
   #tourSpot{position:absolute;border-radius:10px;box-shadow:0 0 0 9999px rgba(15,17,23,.58);border:2px solid var(--create,#7c50e0);transition:left .25s ease,top .25s ease,width .25s ease,height .25s ease;pointer-events:none}
@@ -1539,6 +1554,101 @@ function wireProjectBar(){
   const np = document.getElementById('btnNewProject'); if(np) np.addEventListener('click', doNewProject);
 }
 
+/* ============ right-click context menu on nodes ============ */
+const KIND_REGION = { problem:'solve', hypothesis:'solve', solution:'solve', gap:'solve', seed:'create', synthesis:'create' };
+const KIND_LETTER = { problem:'P', hypothesis:'H', solution:'S', seed:'Se', synthesis:'Sy', gap:'G' };
+const KIND_LIST = ['problem','hypothesis','solution','seed','synthesis','gap'];
+function ctxEls(){
+  let m = document.getElementById('ctxMenu');
+  if(!m){
+    m = document.createElement('div'); m.id = 'ctxMenu'; document.body.appendChild(m);
+    document.addEventListener('click', hideCtx);
+    document.addEventListener('keydown', e => { if(e.key === 'Escape') hideCtx(); });
+    window.addEventListener('resize', hideCtx);
+    const stage = document.querySelector('.stage'); if(stage) stage.addEventListener('scroll', hideCtx, true);
+  }
+  return m;
+}
+function hideCtx(){ const m = document.getElementById('ctxMenu'); if(m) m.classList.remove('on'); }
+function beginConnectFrom(id){
+  if(!NODES[id]) return;
+  connectMode = true; connectSrc = id;
+  document.querySelectorAll('.node').forEach(e => e.classList.toggle('connect-src', e.dataset.id === id));
+  try{ hint.innerHTML = 'Connect from <b>' + NODES[id].t + '</b> — click the <b class="c">target</b> node · Esc to cancel.'; }catch(e){}
+  const cb = document.getElementById('connectBtn'); if(cb){ cb.textContent = '⇢ cancel'; cb.classList.add('on'); }
+}
+function ctxRename(id){
+  if(!NODES[id]) return;
+  const t = prompt('Rename node:', NODES[id].t || ''); if(t === null || !t.trim()) return;
+  NODES[id].t = t.trim();
+  render(); if(sel && sel.split('.')[0] === id) showThreadFor(id);
+  WV.mutate('renameNode', { id, title: t.trim() }).catch(()=>{});
+}
+function addDimensionTo(id, name, sem){
+  const n = NODES[id]; if(!n) return;
+  const k = Object.keys(n.facets).length;
+  const off = [[-112,-74],[112,-74],[0,104],[-118,86],[118,86]][k] || [0,118];
+  n.facets[name] = { name, sem, v:'(no note yet)', x:n.x+off[0], y:n.y+off[1], _ox:off[0], _oy:off[1] };
+  THREADS[id+'.'+name] = { eyebrow:'Facet of '+id, dim:name, sem, msgs:[['ai','New dimension. What does '+name+' constrain or contribute here?']], dist:null, conf:0, stale:'freeform' };
+  expanded.add(id); sel = id;
+  render(); showThreadFor(id); if(window.__reheat) window.__reheat(0.4);
+  WV.mutate('addFacet', { node_id:id, name, semantic:sem }).catch(()=>{});
+}
+function ctxAddDim(id){
+  const name = (prompt('Dimension name (e.g. cost, time, effort):', '') || '').trim().toLowerCase(); if(!name) return;
+  const raw = (prompt('Semantic — gating, accumulative, or informational:', 'informational') || '').trim().toLowerCase();
+  const sem = ['gating','accumulative','informational'].includes(raw) ? raw : 'informational';
+  addDimensionTo(id, name, sem);
+}
+function ctxChangeKind(id, kind){
+  const n = NODES[id]; if(!n || n.kind === kind) return;
+  n.kind = kind; n.region = KIND_REGION[kind] || n.region;
+  render(); if(sel && sel.split('.')[0] === id) showThreadFor(id);
+  if(window.__reheat) window.__reheat(0.4);
+  WV.mutate('changeKind', { id, kind, region: n.region }).catch(()=>{});
+}
+function showCtx(id, x, y){
+  const n = NODES[id]; if(!n) return;
+  const m = ctxEls(); m.innerHTML = '';
+  const head = document.createElement('div'); head.className = 'ck-head';
+  head.textContent = (KIND_LETTER[n.kind] || '?') + ' · ' + (n.t || id); m.appendChild(head);
+  const item = (ic, label, fn, danger) => {
+    const d = document.createElement('div'); d.className = 'ci' + (danger ? ' danger' : '');
+    d.innerHTML = '<span class="ic">' + ic + '</span>' + label;
+    d.addEventListener('click', ev => { ev.stopPropagation(); hideCtx(); fn(); });
+    m.appendChild(d);
+  };
+  item('◎', 'Open in panel', () => { sel = id; render(); showThreadFor(id); });
+  item('✎', 'Rename…', () => ctxRename(id));
+  item('⇢', 'Connect to…', () => beginConnectFrom(id));
+  item('＋', 'Add dimension…', () => ctxAddDim(id));
+  const sep = document.createElement('div'); sep.className = 'sep'; m.appendChild(sep);
+  const kh = document.createElement('div'); kh.className = 'ck-head'; kh.textContent = 'Change kind'; m.appendChild(kh);
+  const row = document.createElement('div'); row.className = 'ckrow';
+  KIND_LIST.forEach(k => {
+    const d = document.createElement('span'); d.className = 'ckdot' + (n.kind === k ? ' cur' : '');
+    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = k;
+    d.addEventListener('click', ev => { ev.stopPropagation(); hideCtx(); ctxChangeKind(id, k); });
+    row.appendChild(d);
+  });
+  m.appendChild(row);
+  const sep2 = document.createElement('div'); sep2.className = 'sep'; m.appendChild(sep2);
+  item('🗑', 'Delete', () => deleteNode(id), true);
+  m.classList.add('on');
+  const mw = m.offsetWidth || 190, mh = m.offsetHeight || 250;
+  let px = x, py = y;
+  if(px + mw > window.innerWidth - 8) px = window.innerWidth - mw - 8;
+  if(py + mh > window.innerHeight - 8) py = window.innerHeight - mh - 8;
+  m.style.left = Math.max(8, px) + 'px'; m.style.top = Math.max(8, py) + 'px';
+}
+function wireContextMenu(){
+  if(typeof nodesEl === 'undefined' || !nodesEl) return;
+  nodesEl.addEventListener('contextmenu', ev => {
+    const el = ev.target.closest('.node'); if(!el) return;
+    ev.preventDefault(); showCtx(el.dataset.id, ev.clientX, ev.clientY);
+  });
+}
+
 /* ============ tutorial — guided spotlight tour ============ */
 const TOUR_STEPS = [
   { t:'Welcome to Weave', center:true,
@@ -1550,8 +1660,8 @@ const TOUR_STEPS = [
   { t:'The six kinds', sel:'.lg-kinds',
     h:'Every node has a kind, shown by colour <i>and</i> letter — P, H, S, Se, Sy, G. The colour tells you what a circle <i>is</i> the instant you glance at it.' },
   { t:'Open a node', sel:'#nodes .node', emptySel:'#btnLoadExample',
-    h:'Click any circle to open its thread on the right: its distillate, its facets, and a space to think alongside the AI.',
-    emptyH:'Your project is empty right now. Click <b>⟳ Load example</b> up here to bring in a full graph — then click any circle to open its thread.' },
+    h:'Click any circle to open its thread on the right: its distillate, its facets, and a space to think alongside the AI. <b>Right-click</b> a circle for quick actions — rename, connect, add a dimension, change kind, delete — without leaving the canvas.',
+    emptyH:'Your project is empty right now. Click <b>⟳ Load example</b> up here to bring in a full graph — then click (or right-click) any circle.' },
   { t:'Connect ideas', sel:'#connectBtn', setup:'selectNode', emptySel:'#btnLoadExample',
     h:'Nodes join with <i>typed</i> edges. A problem <b>decomposes</b> into hypotheses; a hypothesis <b>answers</b> toward a solution; a gap <b>sparks</b> a seed. Select a node, then Connect.',
     emptyH:'Connecting needs a node selected. Load the example (<b>⟳</b> up here), click a circle, then use <b>connect</b> in its panel to draw a typed edge.' },
@@ -1666,6 +1776,7 @@ async function boot(){
   ingest(WEAVE_GRAPH);
   wireProjectBar();
   wireTutorial();
+  wireContextMenu();
   applyProject(WEAVE_GRAPH);
   sel = (WEAVE_GRAPH.nodes[0] || {}).id || null;
   renderInbox(); render(); showThreadFor(sel);
