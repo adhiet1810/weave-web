@@ -439,6 +439,7 @@
   body.mode-simple .lg-scout{display:none}
   body.mode-simple .tb-right .seg{display:none}
   body.mode-simple #scout, body.mode-simple #scoutBadge, body.mode-simple #scoutMarker{display:none!important}
+  body.mode-simple #dimBtn, body.mode-simple #dimForm{display:none!important}
   #advToggle.on{color:var(--create);border-color:var(--create)}
   /* guided next-step chips */
   #nextChips{display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--hairline);background:var(--canvas)}
@@ -1611,18 +1612,55 @@ function applyProject(g){
   const nm = (g && g.project && g.project.name) || 'Untitled';
   const el = document.getElementById('projName'); if(el) el.textContent = nm;
 }
-/* ---- export the project as a Markdown context file ---- */
+/* ---- export the project as an AI-readable Markdown context file ---- */
 function buildMarkdown(g){
   const nm = (g.project && g.project.name) || 'Weave project';
   const nodes = g.nodes || [], struct = g.structural || [], dim = g.dimensional || [];
   const byId = {}; nodes.forEach(n => byId[n.id] = n);
   const isOpen = n => (n.freeform || n.state === 'freeform');
-  const cf = n => (n.confidence != null ? Number(n.confidence).toFixed(2) : '—');
+  const cf = n => (n.confidence != null ? Number(n.confidence).toFixed(2) : 'unset');
+  const q = s => String(s == null ? '' : s);
+  const ref = n => '"' + q(n.title) + '" (' + n.kind + ' `' + n.id + '`)';
+  const count = k => nodes.filter(n => n.kind === k).length;
   const L = [];
+
   L.push('# ' + nm);
   L.push('');
-  L.push('> Exported from **Weave**, a reasoning graph. Nodes are typed — problem, hypothesis, solution, seed, synthesis, gap. Edges are reasoning moves: `decomposes` (break into sub-parts), `answers` (resolves into a solution), `blocks` (an external wall), `sparks` (inspires a new idea), `combines` (fuses into a synthesis), `shares` (a shared dimension). A node\'s **distillate** is its settled one-line claim; **confidence** (0–1) is how settled it is; **open** nodes are still questions. The structure *is* the argument — read the relationships, not just the text. Use this file to set context, or to help resolve the open questions listed at the end.');
+  L.push('_A **Weave** reasoning graph, exported as Markdown. The structure is the argument — read how the nodes connect, not only their text._');
   L.push('');
+
+  L.push('## How to read this');
+  L.push('');
+  L.push('**Nodes** are typed claims:');
+  L.push('- `problem` — a question or goal to resolve');
+  L.push('- `hypothesis` — a claim or approach that might solve it');
+  L.push('- `solution` — a concrete method that realises a hypothesis');
+  L.push('- `seed` — a raw idea, not yet worked out');
+  L.push('- `synthesis` — several ideas fused into one');
+  L.push('- `gap` — a blocker; an external wall in the way');
+  L.push('');
+  L.push('**Edges** are reasoning moves, written `A —relation→ B`:');
+  L.push('- `decomposes` — A breaks into sub-part B');
+  L.push('- `answers` — hypothesis A resolves into solution B');
+  L.push('- `blocks` — gap A is a wall stopping B');
+  L.push('- `sparks` — A inspires a new idea B (turning a blocker into a direction)');
+  L.push('- `combines` — seeds fuse into synthesis B');
+  L.push('- `shares` / `drives` / `constrains` — A and B relate through a shared **dimension** (a cross-cutting criterion such as cost or time)');
+  L.push('');
+  L.push('Each node may carry a **distillate** (its one settled one-line claim) and a **confidence** from 0 to 1 (how settled it is). A node marked **open** is still an unresolved question.');
+  L.push('');
+  L.push('> **If you are an AI reading this:** treat the file as the author\'s current thinking and its open threads. The most useful help is to answer the items in **Open questions**, challenge weak or low-confidence links, or propose new nodes and edges that move the argument forward. Preserve the node `ids` when you refer to specific nodes.');
+  L.push('');
+
+  const opens = nodes.filter(n => isOpen(n) || (n.confidence != null && n.confidence < 0.35));
+  const roots = nodes.filter(n => n.kind === 'problem');
+  L.push('## Snapshot');
+  L.push('');
+  if(roots.length) L.push('- **Problem(s):** ' + roots.map(n => q(n.title)).join(' · '));
+  L.push('- **Counts:** ' + count('hypothesis') + ' hypotheses, ' + count('solution') + ' solutions, ' + count('seed') + ' seeds, ' + count('gap') + ' gaps, ' + count('synthesis') + ' syntheses (' + nodes.length + ' nodes total)');
+  L.push('- **Open questions:** ' + opens.length + (opens.length ? ' — listed at the end' : ''));
+  L.push('');
+
   L.push('## Reasoning structure');
   L.push('');
   const inc = {}; struct.forEach(e => { inc[e.to] = (inc[e.to] || 0) + 1; });
@@ -1630,45 +1668,48 @@ function buildMarkdown(g){
   function walk(id, rel, depth){
     const n = byId[id]; if(!n) return;
     const tag = '[' + n.kind + (isOpen(n) ? ' · open' : '') + ']';
-    const dist = n.distillate ? (' — ' + n.distillate) : '';
+    const dist = n.distillate ? (' — ' + q(n.distillate)) : '';
     const c = n.confidence != null ? (' _(conf ' + cf(n) + ')_') : '';
-    L.push('  '.repeat(depth) + '- ' + (rel ? ('`' + rel + '` → ') : '') + tag + ' **' + n.title + '**' + dist + c);
+    L.push('  '.repeat(depth) + '- ' + (rel ? ('`' + rel + '` → ') : '') + tag + ' **' + q(n.title) + '** `' + n.id + '`' + dist + c);
     if(seen.has(id)) return; seen.add(id);
     struct.filter(e => e.src === id).forEach(e => walk(e.to, e.rel, depth + 1));
   }
   nodes.filter(n => !inc[n.id]).forEach(n => walk(n.id, '', 0));
   nodes.filter(n => !seen.has(n.id)).forEach(n => walk(n.id, '', 0));
   L.push('');
+
   L.push('## Nodes');
   L.push('');
   nodes.forEach(n => {
-    L.push('### [' + n.kind + '] ' + n.title);
-    L.push('- **State:** ' + (isOpen(n) ? 'open (still a question)' : (n.state || 'distilled')));
-    L.push('- **Confidence:** ' + cf(n));
-    L.push('- **Distillate:** ' + (n.distillate || '—'));
-    if(n.facets && n.facets.length){
-      L.push('- **Dimensions:** ' + n.facets.map(f => f.name + ' (' + (f.semantic || 'informational') + ')' + (f.distillate ? (': ' + f.distillate) : '')).join('; '));
-    }
+    L.push('### ' + q(n.title));
+    L.push('`' + n.id + '` · **' + n.kind + '** · ' + (isOpen(n) ? 'open (unresolved)' : (n.state || 'distilled')) + ' · confidence ' + cf(n));
     L.push('');
-    L.push(n.body && n.body.trim() ? n.body.trim() : '_(no notes yet)_');
+    if(n.distillate) L.push('**Distillate (settled claim):** ' + q(n.distillate));
+    if(n.facets && n.facets.length) L.push('**Dimensions:** ' + n.facets.map(f => '`' + f.name + '` (' + (f.semantic || 'informational') + ')' + (f.distillate ? (': ' + q(f.distillate)) : '')).join('; '));
+    if(n.distillate || (n.facets && n.facets.length)) L.push('');
+    L.push('**Notes:** ' + (n.body && n.body.trim() ? n.body.trim() : '_(none yet)_'));
     L.push('');
   });
+
   if(struct.length || dim.length){
-    L.push('## Relationships');
+    L.push('## Relationships (edge list)');
     L.push('');
-    struct.forEach(e => { const a = byId[e.src], b = byId[e.to]; if(a && b) L.push('- ' + a.kind + ' "' + a.title + '" — `' + e.rel + '` → ' + b.kind + ' "' + b.title + '"' + (e.note ? (' _(' + e.note + ')_') : '')); });
-    dim.forEach(e => { const a = byId[e.src], b = byId[e.to_id]; if(a && b) L.push('- ' + a.kind + ' "' + a.title + '"' + (e.from ? (' [' + e.from + ']') : '') + ' — `' + e.rel + '` → ' + b.kind + ' "' + b.title + '"' + (e.to_facet ? (' [' + e.to_facet + ']') : '') + (e.note ? (' _(' + e.note + ')_') : '')); });
+    struct.forEach(e => { const a = byId[e.src], b = byId[e.to]; if(a && b) L.push('- ' + ref(a) + ' — `' + e.rel + '` → ' + ref(b) + (e.note ? (' — _' + q(e.note) + '_') : '')); });
+    dim.forEach(e => { const a = byId[e.src], b = byId[e.to_id]; if(a && b) L.push('- ' + ref(a) + (e.from ? (' [dim: ' + e.from + ']') : '') + ' — `' + e.rel + '` → ' + ref(b) + (e.to_facet ? (' [dim: ' + e.to_facet + ']') : '') + (e.note ? (' — _' + q(e.note) + '_') : '')); });
     L.push('');
   }
-  const opens = nodes.filter(n => isOpen(n) || (n.confidence != null && n.confidence < 0.35));
+
   if(opens.length){
-    L.push('## Open questions (unresolved / low confidence)');
+    L.push('## Open questions (unresolved — help wanted)');
     L.push('');
-    opens.forEach(n => L.push('- [' + n.kind + '] ' + n.title + (n.confidence != null ? (' (conf ' + cf(n) + ')') : '')));
+    L.push('_These nodes are unresolved (open state, or confidence below 0.35). Answering or tightening them is the most useful contribution._');
+    L.push('');
+    opens.forEach(n => { L.push('- **' + q(n.title) + '** `' + n.id + '` — ' + n.kind + ', confidence ' + cf(n) + (n.body && n.body.trim() ? ('. ' + n.body.trim()) : '')); });
     L.push('');
   }
+
   L.push('---');
-  L.push('_' + nodes.length + ' nodes · ' + struct.length + ' structural + ' + dim.length + ' dimensional edges._');
+  L.push('_Weave export · ' + nodes.length + ' nodes · ' + struct.length + ' structural + ' + dim.length + ' dimensional edges._');
   return L.join('\n');
 }
 function exportMarkdown(){
@@ -1899,7 +1940,7 @@ function showCtx(id, x, y){
   item('◎', 'Open in panel', () => { sel = id; render(); showThreadFor(id); });
   item('✎', 'Edit…', () => openEdit(id));
   item('⇢', 'Connect to…', () => beginConnectFrom(id));
-  item('＋', 'Add dimension…', () => ctxAddDim(id));
+  if(!document.body.classList.contains('mode-simple')) item('＋', 'Add dimension…', () => ctxAddDim(id));
   const sep = document.createElement('div'); sep.className = 'sep'; m.appendChild(sep);
   const kh = document.createElement('div'); kh.className = 'ck-head'; kh.textContent = 'Change kind'; m.appendChild(kh);
   const row = document.createElement('div'); row.className = 'ckrow';
