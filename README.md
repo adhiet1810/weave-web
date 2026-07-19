@@ -52,9 +52,14 @@ Prerequisites: Node 18+ and npm.
 ```bash
 npm install
 npm run db:init      # apply schema to a local D1
-npm run db:seed      # load the food-spending example vault
+npm run db:seed      # load the food-spending graph
+npm run db:projects  # split it into the 'example' template; working project starts blank
 npm run dev          # wrangler pages dev on http://localhost:8788
 ```
+
+The app opens to an **empty project** named "Untitled". Use **⟳ Load example**
+(top bar) to clone the food-spending graph in, **＋ New** to start over blank,
+or click the project name to rename it.
 
 The app loads with no key set — the graph, editing, capture, connect, and
 add-dimension all work offline against D1. To enable live AI (composer replies
@@ -88,7 +93,11 @@ curl -X POST http://localhost:8788/api/mutate \
    # copy the printed database_id into wrangler.toml → [[d1_databases]].database_id
    npm run db:init:remote
    npm run db:seed:remote
+   npm run db:projects:remote   # required — creates the projects table + example vault
    ```
+
+   The `db:projects` migration is **required**, not optional: the app reads a
+   `projects` table on every load, so without it `/api/graph` returns a 500.
 
 3. **Connect the repo in the Cloudflare dashboard** → *Workers & Pages* →
    *Create* → *Pages* → *Connect to Git*. Build settings:
@@ -127,8 +136,20 @@ schema changes).
 | `addCapture`    | `{ id, text }`                                                |
 | `deleteCapture` | `{ id }`                                                       |
 | `promote`       | `{ captureId, node }` (capture → node in one step)            |
+| `renameProject` | `{ name }`                                                    |
+| `clearVault`    | `{ name? }` — empty the working project ("＋ New")            |
+| `loadExample`   | `{}` — clone the `example` template into the working project  |
 
-Each returns the full re-derived graph, so the client stays in sync.
+Each returns the full re-derived graph (plus `project.name`), so the client
+stays in sync.
+
+## Projects (one at a time)
+
+The working project is the `default` vault; the food-spending graph lives in a
+read-only `example` vault. **Load example** clones `example` → `default`
+(replacing it), **＋ New** clears `default`, and the project name is stored in a
+`projects` table. To ship a *different* built-in example, seed it under
+`vault_id = 'example'` instead of `'default'`.
 
 ## The AI actions (`POST /api/ai`)
 

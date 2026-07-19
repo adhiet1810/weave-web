@@ -8,4 +8,5 @@ export function requireAuth(request, env) {
   return null;
 }
 
-export const VAULT = "default"; // single-workspace v1
+export const VAULT = "default";   // the working project
+export const EXAMPLE = "example";  // read-only template cloned by "Load example"

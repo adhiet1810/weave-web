@@ -13,5 +13,7 @@ export async function onRequestGet({ env, request }) {
     db.prepare("SELECT * FROM captures WHERE vault_id=?").bind(VAULT).all(),
   ]);
   const graph = derive(nodes.results, facets.results, edges.results, captures.results);
+  const proj = await db.prepare("SELECT name FROM projects WHERE vault_id=?").bind(VAULT).first();
+  graph.project = { name: proj?.name || "Untitled" };
   return Response.json(graph, { headers: { "cache-control": "no-store" } });
 }

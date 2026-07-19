@@ -7,8 +7,10 @@
     "dev": "wrangler pages dev public --d1=DB",
     "db:init": "wrangler d1 execute weave --local --file=./migrations/0001_init.sql",
     "db:seed": "wrangler d1 execute weave --local --file=./migrations/0002_seed.sql",
+    "db:projects": "wrangler d1 execute weave --local --file=./migrations/0003_projects.sql",
     "db:init:remote": "wrangler d1 execute weave --remote --file=./migrations/0001_init.sql",
     "db:seed:remote": "wrangler d1 execute weave --remote --file=./migrations/0002_seed.sql",
+    "db:projects:remote": "wrangler d1 execute weave --remote --file=./migrations/0003_projects.sql",
     "deploy": "wrangler pages deploy public"
   },
   "devDependencies": {

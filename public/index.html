@@ -409,6 +409,18 @@
   .nodepop .ptt{font-weight:600;font-size:13px;line-height:1.25;margin-top:5px;color:var(--ink)}
   .nodepop .pd{font-size:11.5px;line-height:1.4;color:var(--body);margin-top:6px}
   .nodepop .pf{font-family:'IBM Plex Mono';font-size:9px;color:var(--mute);margin-top:7px}
+
+  .projname{cursor:text;border-bottom:1px dashed transparent;padding-bottom:1px}
+  .projname:hover{border-bottom-color:var(--hairline-strong,#999)}
+  .projacts{display:inline-flex;gap:6px;margin-left:10px}
+  .pjbtn{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.2px;color:var(--body,#444);background:var(--canvas,#fff);border:1px solid var(--hairline,#ddd);border-radius:5px;padding:3px 7px;cursor:pointer}
+  .pjbtn:hover{border-color:var(--hairline-strong,#999);color:var(--ink,#111)}
+  #emptyState{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;z-index:5}
+  #emptyState.on{display:flex}
+  #emptyState .card{pointer-events:auto;text-align:center;max-width:340px;font-family:'Inter',system-ui,sans-serif;color:var(--mute,#888)}
+  #emptyState .card h3{font-size:15px;color:var(--ink,#111);margin:0 0 6px;letter-spacing:-.3px}
+  #emptyState .card p{font-size:12.5px;line-height:1.5;margin:0 0 14px}
+  #emptyState .card button{font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:#fff;background:var(--create,#7c50e0);border:none;border-radius:7px;padding:9px 15px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -417,7 +429,7 @@
   <div class="titlebar">
     <div class="lights"><i></i><i></i><i></i></div>
     <div class="app-id">WE<b>A</b>VE</div>
-    <div class="vault"><span class="dot"></span><span>vault mounted</span><span class="path">~/ideas/vault</span></div>
+    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename">Untitled</span><span class="projacts"><button id="btnLoadExample" class="pjbtn" title="Replace this project with the example graph">⟳ Load example</button><button id="btnNewProject" class="pjbtn" title="Start a new blank project">＋ New</button></span></div>
   </div>
 
   <div class="toolbar">
@@ -592,7 +604,7 @@ function flash(msg){
   el.textContent = msg; el.style.opacity='1'; clearTimeout(el._t); el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2800);
 }
 async function reload(){
-  const g = await WV.graph(); WEAVE_GRAPH = g; ingest(g); render(); renderInbox();
+  const g = await WV.graph(); WEAVE_GRAPH = g; ingest(g); applyProject(g); render(); renderInbox();
   if(window.__fitView) window.__fitView(); if(window.__reheat) window.__reheat(0.7);
 }
 
@@ -1459,6 +1471,53 @@ async function acceptSynth(p){
   }catch(e){ flash('add failed: ' + e.message); }
 }
 
+/* ============ project bar — name, load example, new blank ============ */
+function ensureEmptyState(){
+  let el = document.getElementById('emptyState');
+  if(!el){
+    const host = document.querySelector('.stage') || document.body;
+    if(getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    el = document.createElement('div'); el.id = 'emptyState';
+    el.innerHTML = '<div class="card"><h3>This project is empty</h3>' +
+      '<p>Capture a thought in the left rail to start building, or load the worked example to see a full reasoning graph.</p>' +
+      '<button id="emptyLoad">⟳ Load example</button></div>';
+    host.appendChild(el);
+    el.querySelector('#emptyLoad').addEventListener('click', doLoadExample);
+  }
+  return el;
+}
+function applyProject(g){
+  const nm = (g && g.project && g.project.name) || 'Untitled';
+  const el = document.getElementById('projName'); if(el) el.textContent = nm;
+  const empty = !g || !g.nodes || g.nodes.length === 0;
+  ensureEmptyState().classList.toggle('on', empty);
+}
+async function doLoadExample(){
+  if(!confirm('Load the example graph? This replaces the current project.')) return;
+  flash('Loading example…');
+  try{ await WV.mutate('loadExample', {}); await reload(); flash('Example loaded.'); }
+  catch(e){ flash('load failed: ' + e.message); }
+}
+async function doNewProject(){
+  if(!confirm('Start a new blank project? This clears the current one.')) return;
+  const name = prompt('Name your project:', 'Untitled'); if(name === null) return;
+  flash('Starting fresh…');
+  try{ await WV.mutate('clearVault', { name: name || 'Untitled' }); await reload(); }
+  catch(e){ flash('failed: ' + e.message); }
+}
+async function doRename(){
+  const cur = (document.getElementById('projName') || {}).textContent || 'Untitled';
+  const name = prompt('Rename project:', cur); if(name === null || !name.trim()) return;
+  try{ await WV.mutate('renameProject', { name: name.trim() });
+    const el = document.getElementById('projName'); if(el) el.textContent = name.trim();
+  }catch(e){ flash('rename failed: ' + e.message); }
+}
+function wireProjectBar(){
+  const n = document.getElementById('projName'); if(n) n.addEventListener('click', doRename);
+  const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', doLoadExample);
+  const np = document.getElementById('btnNewProject'); if(np) np.addEventListener('click', doNewProject);
+}
+
 /* ============ boot ============ */
 async function boot(){
   try{
@@ -1475,6 +1534,8 @@ async function boot(){
     return;
   }
   ingest(WEAVE_GRAPH);
+  wireProjectBar();
+  applyProject(WEAVE_GRAPH);
   sel = (WEAVE_GRAPH.nodes[0] || {}).id || null;
   renderInbox(); render(); showThreadFor(sel);
   if(window.__fitView){ window.__fitView(); }
