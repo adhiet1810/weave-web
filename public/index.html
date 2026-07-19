@@ -856,6 +856,14 @@ function renderNodes(){
 function curve(ax,ay,bx,by){
   return 'M'+ax+','+ay+' C'+ax+','+((ay+by)/2)+' '+bx+','+((ay+by)/2)+' '+bx+','+by;
 }
+// Direction-aware path: trims to each node's rim and bows gently, so the
+// arrowhead lands just outside the target and points ALONG the edge.
+function arrowPath(A,B,ra,rb){
+  const dx=B.x-A.x, dy=B.y-A.y, d=Math.hypot(dx,dy)||1, ux=dx/d, uy=dy/d;
+  const ax=A.x+ux*ra, ay=A.y+uy*ra, bx=B.x-ux*rb, by=B.y-uy*rb;
+  const mx=(ax+bx)/2, my=(ay+by)/2, nx=-uy, ny=ux, bow=Math.max(-46,Math.min(46,d*0.14));
+  return 'M'+ax.toFixed(1)+','+ay.toFixed(1)+' Q'+(mx+nx*bow).toFixed(1)+','+(my+ny*bow).toFixed(1)+' '+bx.toFixed(1)+','+by.toFixed(1);
+}
 function anchor(ref){
   if(Array.isArray(ref)){
     const [id,fid]=ref;
@@ -868,8 +876,8 @@ function renderEdges(){
   syncThemeColors();
   if(stage.classList.contains('constellation')){ renderConstellationEdges(); return; }
   let svg='<defs>'
-    +'<marker id="as" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="'+C_SOLVE+'"/></marker>'
-    +'<marker id="ac" markerWidth="8" markerHeight="8" refX="6.5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="'+C_CREATE+'"/></marker>'
+    +'<marker id="as" viewBox="0 0 10 10" markerWidth="9" markerHeight="9" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1,1 L9,5 L1,9 z" fill="'+C_SOLVE+'"/></marker>'
+    +'<marker id="ac" viewBox="0 0 10 10" markerWidth="9" markerHeight="9" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1,1 L9,5 L1,9 z" fill="'+C_CREATE+'"/></marker>'
     +'</defs>';
   labelsEl.innerHTML='';
 
@@ -885,7 +893,7 @@ function renderEdges(){
   STRUCT.forEach(e=>{
     const A=NODES[e.a],B=NODES[e.b];
     const col=e.dir==='s'?C_SOLVE:C_CREATE, mk=e.dir==='s'?'as':'ac';
-    svg+='<path d="'+curve(A.x,A.y,B.x,B.y)+'" stroke="'+col+'" stroke-width="1.4" fill="none" opacity=".5" marker-end="url(#'+mk+')"/>';
+    svg+='<path d="'+arrowPath(A,B,21,29)+'" stroke="'+col+'" stroke-width="1.8" fill="none" stroke-opacity=".5" marker-end="url(#'+mk+')"/>';
     if(e.l){
       const lab=document.createElement('div');
       lab.className='elabel '+(e.dir==='s'?'s':'c');
@@ -898,7 +906,7 @@ function renderEdges(){
   /* seam spark edge once opened */
   if(gapOpened){
     const G=NODES[GAP_ID]||{x:0,y:0}, SD=NODES[SEED_ID]||{x:0,y:0};
-    svg+='<path d="'+curve(G.x,G.y,SD.x,SD.y)+'" stroke="'+C_CREATE+'" stroke-width="1.6" stroke-dasharray="2 6" fill="none" opacity=".8" marker-end="url(#ac)"/>';
+    svg+='<path d="'+arrowPath(G,SD,21,29)+'" stroke="'+C_CREATE+'" stroke-width="2" stroke-dasharray="3 5" fill="none" stroke-opacity=".85" marker-end="url(#ac)"/>';
     const lab=document.createElement('div');
     lab.className='elabel c';
     lab.style.left=((G.x+SD.x)/2)+'px'; lab.style.top=((G.y+SD.y)/2+8)+'px';
