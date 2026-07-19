@@ -164,6 +164,8 @@
   .sw.sh{border-top:2px dashed var(--create)}
   .sw.fd{border-top:3px solid var(--hairline-strong)}
   .sw.ct{border-top:1.5px dotted var(--hairline-strong)}
+  .gl{cursor:help}
+  .lg-row.gl:hover{color:var(--ink)}
   .railnote{margin-top:20px;font-size:11.5px;line-height:1.55;color:var(--mute)}
   .railnote b{color:var(--body);font-weight:500}
 
@@ -432,6 +434,18 @@
   .pjbtn{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.2px;color:var(--body,#444);background:var(--canvas,#fff);border:1px solid var(--hairline,#ddd);border-radius:5px;padding:3px 7px;cursor:pointer}
   .pjbtn:hover{border-color:var(--hairline-strong,#999);color:var(--ink,#111)}
 
+  /* simple mode — hide advanced chrome for first-time users */
+  body.mode-simple #aibar{display:none}
+  body.mode-simple .lg-scout{display:none}
+  body.mode-simple .tb-right .seg{display:none}
+  body.mode-simple #scout, body.mode-simple #scoutBadge, body.mode-simple #scoutMarker{display:none!important}
+  #advToggle.on{color:var(--create);border-color:var(--create)}
+  /* guided next-step chips */
+  #nextChips{display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--hairline);background:var(--canvas)}
+  #nextChips .nc-h{font-family:'IBM Plex Mono';font-size:9px;letter-spacing:.4px;text-transform:uppercase;color:var(--mute);margin-right:2px}
+  #nextChips .nc{font-family:'Inter',system-ui,sans-serif;font-size:11.5px;background:var(--page);border:1px solid var(--hairline);border-radius:14px;padding:5px 11px;cursor:pointer;color:var(--ink);white-space:nowrap}
+  #nextChips .nc:hover{border-color:var(--create);color:var(--create)}
+
   /* ---------- mobile / responsive ---------- */
   #mHamb,#mZoom,.sheet-handle{display:none}
   #mBackdrop{position:fixed;inset:0;background:rgba(10,12,16,.42);z-index:7500;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -534,7 +548,7 @@
     <div class="tb-right">
       <button class="scoutbadge" id="scoutBadge" title="Scout noticed an exhausted vector — click to see the offer" style="display:none"><span class="dot"></span>⌖ <b>1</b> scout</button>
       <span class="zoomstate" id="zoomstate"></span>
-      <button class="themebtn" id="tutBtn" title="Guided tour of Weave">? Tutorial</button><button class="themebtn" id="themeBtn" title="Toggle light / dark">☾ dark</button>
+      <button class="themebtn" id="advToggle" title="Show advanced tools">⚙ Advanced</button><button class="themebtn" id="tutBtn" title="Guided tour of Weave">? Tutorial</button><button class="themebtn" id="themeBtn" title="Toggle light / dark">☾ dark</button>
       <div class="seg"><button class="on" id="v-graph">Graph</button><button id="v-matrix">Matrix</button></div>
     </div>
   </div>
@@ -552,12 +566,12 @@
 
       <div class="lg-kinds">
       <h4>Node kinds</h4>
-      <div class="lg-row"><span class="lg-node k-problem"></span>Problem</div>
-      <div class="lg-row"><span class="lg-node k-hypo"></span>Hypothesis</div>
-      <div class="lg-row"><span class="lg-node k-solution"></span>Solution</div>
-      <div class="lg-row"><span class="lg-node k-seed"></span>Seed</div>
-      <div class="lg-row"><span class="lg-node k-syn"></span>Synthesis</div>
-      <div class="lg-row"><span class="lg-node k-gap"></span>Gap</div>
+      <div class="lg-row gl" title="A question or goal you're trying to resolve — where the solve side starts."><span class="lg-node k-problem"></span>Problem</div>
+      <div class="lg-row gl" title="A claim or approach that might solve the problem — something to test."><span class="lg-node k-hypo"></span>Hypothesis</div>
+      <div class="lg-row gl" title="The concrete method that realises a hypothesis."><span class="lg-node k-solution"></span>Solution</div>
+      <div class="lg-row gl" title="A raw idea, not yet worked out — where the create side starts."><span class="lg-node k-seed"></span>Seed</div>
+      <div class="lg-row gl" title="Several seeds fused into one new whole."><span class="lg-node k-syn"></span>Synthesis</div>
+      <div class="lg-row gl" title="A blocker — an external wall. Flip it into a spark to get unstuck."><span class="lg-node k-gap"></span>Gap</div>
       </div>
 
       <div class="lg-states">
@@ -573,9 +587,11 @@
       <div class="lg-row"><span class="sw fd"></span>folded ×N</div>
       <div class="lg-row"><span class="sw ct"></span>contains</div>
 
+      <div class="lg-scout">
       <h4 style="margin-top:20px">Scout style</h4>
       <div class="seg scoutseg"><button class="on" id="sc-interrupt" title="Pops at the dead-end and pulses for a decision">⌖ interrupt</button><button id="sc-ambient" title="Waits quietly to be noticed">ambient</button></div>
       <div id="scoutStyleNote" style="font-family:'IBM Plex Mono';font-size:9.5px;color:var(--mute);line-height:1.5;margin-top:7px">pops at the dead-end · pulses for a decision</div>
+      </div>
 
       <div class="railnote">
         <b>One substrate, two zooms, two vectors.</b><br><br>
@@ -649,7 +665,7 @@
         </div>
         <div class="thread" id="th-thread"></div>
         <div class="distillate" id="th-distillate">
-          <div class="dh"><span class="lbl">◈ Distillate</span><span class="re" id="th-regen">↻ regenerate</span></div>
+          <div class="dh"><span class="lbl gl" title="The one-line takeaway — the settled claim this node makes. Write it once the thinking lands; leave it blank while it's still a question.">◈ Distillate</span><span class="re" id="th-regen">↻ regenerate</span></div>
           <div class="dtext" id="th-dtext"></div>
           <div class="dfoot">
             <div class="meter"><span id="th-conf">confidence —</span><div class="bar"><i id="th-bar" style="width:0%"></i></div></div>
@@ -1687,6 +1703,74 @@ async function doRename(){
     const el = document.getElementById('projName'); if(el) el.textContent = name.trim();
   }catch(e){ flash('rename failed: ' + e.message); }
 }
+/* ---- guided next-step chips: offer the legal reasoning moves for a node ---- */
+const NEXT_MOVES = {
+  problem:[{label:'＋ Hypothesis', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'A claim that might solve it:'}],
+  hypothesis:[
+    {label:'＋ Solution', kind:'solution', rel:'answers', dir:'out', prompt:'The method that realises it:'},
+    {label:'＋ Open question', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:"A sub-question you'll work out:"}
+  ],
+  solution:[{label:'⚑ Blocker', kind:'gap', rel:'blocks', dir:'in', prompt:'What blocks this solution:'}],
+  gap:[{label:'⚡ Flip to a spark', kind:'seed', rel:'sparks', dir:'out', prompt:'The idea this blocker sparks:'}],
+  seed:[
+    {label:'＋ Spark an idea', kind:'seed', rel:'sparks', dir:'out', prompt:'A new idea this inspires:'},
+    {label:'◈ Combine → synthesis', kind:'synthesis', rel:'combines', dir:'out', prompt:'The fused idea:'}
+  ],
+  synthesis:[]
+};
+function addLinkedNode(srcId, mv){
+  const s = NODES[srcId]; if(!s) return;
+  const title = prompt(mv.prompt || 'Title:', ''); if(title === null || !title.trim()) return;
+  const id = 'n' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
+  const region = KIND_REGION[mv.kind] || s.region;
+  const x = (s.x || 400) + (region === 'create' ? 150 : -150) * (mv.dir === 'in' ? -1 : 1);
+  const y = (s.y || 300) + 80;
+  NODES[id] = { kind: mv.kind, region, t: title.trim(), x, y, facets: {}, fresh: true };
+  THREADS[id] = { eyebrow: mv.kind + ' · ' + id, msgs: [], dist: null, conf: 0, stale: 'freeform' };
+  if(typeof NODEDATA !== 'undefined') NODEDATA[id] = { id, kind: mv.kind, region, title: title.trim(), state: 'freeform', freeform: true, distillate: null, confidence: null, facets: [], body: '' };
+  const a = mv.dir === 'out' ? srcId : id, b = mv.dir === 'out' ? id : srcId;
+  if(['decomposes','answers','blocks','sparks','combines','refines'].includes(mv.rel))
+    STRUCT.push({ a, b, dir: (mv.rel === 'sparks' || mv.rel === 'combines') ? 'c' : 's', l: mv.rel });
+  WV.mutate('upsertNode', { node: { id, kind: mv.kind, region, title: title.trim(), state: 'freeform' } })
+    .then(() => WV.mutate('addEdge', { src: a, to_id: b, rel: mv.rel })).catch(()=>{});
+  sel = id; render(); showThreadFor(id); if(window.__reheat) window.__reheat(0.6);
+}
+function updateNextChips(key){
+  let bar = document.getElementById('nextChips');
+  if(!bar){
+    const insp = document.querySelector('.inspect'); if(!insp) return;
+    bar = document.createElement('div'); bar.id = 'nextChips';
+    const handle = insp.querySelector('.sheet-handle');
+    insp.insertBefore(bar, handle ? handle.nextSibling : insp.firstChild);
+  }
+  const id = (key || '').split('.')[0]; const n = NODES[id];
+  const moves = n ? (NEXT_MOVES[n.kind] || []) : [];
+  if(!n || !moves.length){ bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span class="nc-h">Next</span>';
+  moves.forEach(mv => { const c = document.createElement('button'); c.className = 'nc'; c.textContent = mv.label;
+    c.addEventListener('click', ev => { ev.stopPropagation(); addLinkedNode(id, mv); }); bar.appendChild(c); });
+}
+if(typeof showThreadFor === 'function'){ const _stf = showThreadFor; showThreadFor = function(k){ _stf(k); try{ updateNextChips(k); }catch(e){} }; }
+
+/* ---- simple / advanced mode ---- */
+function applyMode(){
+  let adv = false; try { adv = localStorage.getItem('weave_mode') === 'advanced'; } catch(e){}
+  document.body.classList.toggle('mode-simple', !adv);
+  const b = document.getElementById('advToggle');
+  if(b){ b.classList.toggle('on', adv); b.textContent = adv ? '⚙ Simple' : '⚙ Advanced'; b.title = adv ? 'Hide advanced tools' : 'Show advanced tools'; }
+}
+function wireModeToggle(){
+  const b = document.getElementById('advToggle');
+  if(b) b.addEventListener('click', ev => {
+    ev.stopPropagation();
+    let adv = false; try { adv = localStorage.getItem('weave_mode') === 'advanced'; } catch(e){}
+    try { localStorage.setItem('weave_mode', adv ? 'simple' : 'advanced'); } catch(e){}
+    applyMode();
+  });
+  applyMode();
+}
+
 function wireProjectBar(){
   const n = document.getElementById('projName'); if(n) n.addEventListener('click', doRename);
   const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', doLoadExample);
@@ -2036,6 +2120,7 @@ async function boot(){
   }
   ingest(WEAVE_GRAPH);
   wireProjectBar();
+  wireModeToggle();
   wireTutorial();
   wireContextMenu();
   wireMobile();
