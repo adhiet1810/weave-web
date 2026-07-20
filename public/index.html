@@ -456,7 +456,7 @@
   #nextChips .nc:hover{border-color:var(--create);color:var(--create)}
 
   /* ---------- mobile / responsive ---------- */
-  #mHamb,#mZoom,.sheet-handle{display:none}
+  #mHamb,#mZoom,#mAdd,.sheet-handle{display:none}
   #mBackdrop{position:fixed;inset:0;background:rgba(10,12,16,.42);z-index:7500;opacity:0;pointer-events:none;transition:opacity .2s}
   #mBackdrop.on{opacity:1;pointer-events:auto}
   @media (max-width:760px){
@@ -481,6 +481,17 @@
     .sheet-handle{display:flex;align-items:center;position:relative;padding:11px 14px 6px}
     .sheet-handle .bar{position:absolute;left:50%;transform:translateX(-50%);top:6px;width:38px;height:4px;border-radius:3px;background:var(--hairline-strong,#ccc)}
     .sheet-handle .sx{margin-left:auto;font-size:17px;color:var(--mute);cursor:pointer;background:none;border:none;line-height:1}
+    /* context menu → compact bottom action sheet, so the top of the map stays visible */
+    #ctxMenu{position:fixed!important;left:8px!important;right:8px!important;bottom:calc(8px + env(safe-area-inset-bottom))!important;top:auto!important;width:auto!important;min-width:0!important;max-height:44vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:15px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));box-shadow:0 -12px 42px rgba(0,0,0,.32)}
+    #ctxMenu::before{content:'';display:block;width:38px;height:4px;border-radius:3px;background:var(--hairline-strong,#ccc);margin:3px auto 6px}
+    #ctxMenu .ci{padding:12px 12px;font-size:14px;border-radius:9px}
+    #ctxMenu .ci .ic{font-size:14px;width:18px}
+    #ctxMenu .ck-head{font-size:9.5px;padding:8px 10px 4px}
+    #ctxMenu .ckrow{gap:9px;padding:5px 10px 9px}
+    #ctxMenu .ckdot{width:29px;height:29px;font-size:9px}
+    /* create FAB — the mobile stand-in for right-click-to-create */
+    #mAdd{display:flex;align-items:center;justify-content:center;position:fixed;right:14px;bottom:16px;z-index:7000;width:52px;height:52px;border-radius:50%;border:none;background:var(--ink);color:var(--page);font-size:26px;line-height:1;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer}
+    #mAdd:active{transform:scale(.94)}
   }
 
   #editModal{position:fixed;inset:0;z-index:9700;display:none;align-items:center;justify-content:center;background:rgba(10,12,16,.5)}
@@ -1950,6 +1961,19 @@ function wireMobile(){
   document.body.appendChild(zoom);
   zoom.querySelector('#mZin').addEventListener('click', () => mZoomStep(-1));
   zoom.querySelector('#mZout').addEventListener('click', () => mZoomStep(1));
+  // create FAB — replaces desktop right-click-empty-canvas on touch
+  const fab = _mk('button', 'mAdd', null, '＋'); fab.title = 'Add a node';
+  document.body.appendChild(fab);
+  fab.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const wrap = document.querySelector('.canvas-wrap'); if(!wrap) return;
+    const r = wrap.getBoundingClientRect();
+    const v = window.__view || { panX:0, panY:0, scale:1 };
+    const cx = r.left + r.width / 2, cy = r.top + r.height * 0.4;
+    const sx = (cx - r.left - v.panX) / v.scale;
+    const sy = (cy - r.top - v.panY) / v.scale;
+    if(typeof showCanvasCtx === 'function') showCanvasCtx(sx, sy, cx, cy);
+  });
   if(typeof nodesEl !== 'undefined' && nodesEl){
     // tap a node -> reveal the bottom sheet (capture phase; survives the node's stopPropagation)
     nodesEl.addEventListener('click', ev => {
