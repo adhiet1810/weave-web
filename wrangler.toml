@@ -8,6 +8,7 @@ binding = "DB"
 database_name = "weave"
 database_id = "35899352-7575-46d0-8336-6e6ddef2fd85"
 
-# Optional: pin a default model. Overridable per-request.
+# Default model for /api/ai. Overridable per-request. (API key stays a secret,
+# set via `wrangler pages secret put OPENROUTER_API_KEY` — never in this file.)
 [vars]
-OPENROUTER_MODEL = "anthropic/claude-3.5-sonnet"
+OPENROUTER_MODEL = "deepseek/deepseek-v4-pro"
