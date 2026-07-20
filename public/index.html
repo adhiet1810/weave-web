@@ -614,11 +614,11 @@
 
       <div class="stagefit" id="graphview">
         <div class="stage" id="stage">
-          <div class="region solve" id="region-solve" style="left:28px;top:48px;width:432px;height:482px">
+          <div class="region solve" id="region-solve" style="left:32px;top:55px;width:452px;height:480px">
             <div class="rpill solve" id="pill-solve">◐ Solving <span class="flip">· convergent · flip</span></div>
             <div class="vector">▼ converging to a solution</div>
           </div>
-          <div class="region create" id="region-create" style="left:502px;top:66px;width:496px;height:464px">
+          <div class="region create" id="region-create" style="left:526px;top:55px;width:452px;height:480px">
             <div class="rpill create" id="pill-create">◑ Creating <span class="flip">· divergent · flip</span></div>
             <div class="vector">▲ diverging from a seed</div>
           </div>
@@ -746,7 +746,7 @@ let GAP_ID=null, SEED_ID=null, SYN_ID=null, SEAM=null;
 function shortv(f){ const t=(f.distillate||f.name||''); return t.length>26?t.slice(0,26)+'…':t; }
 function ingest(g){
   NODES={}; STRUCT=[]; FEDGES=[]; THREADS={}; NODEDATA={};
-  const SC={x:245,y:300}, CC={x:750,y:300};
+  const SC={x:258,y:295}, CC={x:752,y:295};
   GAP_ID=(g.nodes.find(n=>n.kind==='gap')||{}).id||null;
   SYN_ID=(g.nodes.find(n=>n.kind==='synthesis')||{}).id||null;
   SEAM=g.structural.find(e=>e.src===GAP_ID && e.rel==='sparks')||null;
@@ -1418,7 +1418,7 @@ document.querySelectorAll('#matrixview [data-node]').forEach(el=>{
 });
 
 /* ===================== Obsidian-style graph engine ===================== */
-const RC = { solve:{x:244,y:289}, create:{x:750,y:298} };
+const RC = { solve:{x:258,y:295}, create:{x:752,y:295} };
 const DEG = {}; window.__DEG = DEG;
 Object.keys(NODES).forEach(id=>DEG[id]=0);
 STRUCT.forEach(e=>{ if(DEG[e.a]!=null)DEG[e.a]++; if(DEG[e.b]!=null)DEG[e.b]++; });
@@ -2040,6 +2040,13 @@ function showCtx(id, x, y){
   item('✎', 'Edit…', () => openEdit(id));
   item('⇢', 'Connect to…', () => beginConnectFrom(id));
   if(!document.body.classList.contains('mode-simple')) item('＋', 'Add dimension…', () => ctxAddDim(id));
+  const moves = (typeof NEXT_MOVES !== 'undefined' && NEXT_MOVES[n.kind]) || [];
+  if(moves.length){
+    const s0 = document.createElement('div'); s0.className = 'sep'; m.appendChild(s0);
+    const nh = document.createElement('div'); nh.className = 'ck-head'; nh.textContent = 'Suggested next'; m.appendChild(nh);
+    moves.forEach(mv => { const sp = mv.label.indexOf(' '); const ic = sp > 0 ? mv.label.slice(0, sp) : '＋'; const lb = sp > 0 ? mv.label.slice(sp + 1) : mv.label;
+      item(ic, lb, () => addLinkedNode(id, mv)); });
+  }
   const sep = document.createElement('div'); sep.className = 'sep'; m.appendChild(sep);
   const kh = document.createElement('div'); kh.className = 'ck-head'; kh.textContent = 'Change kind'; m.appendChild(kh);
   const row = document.createElement('div'); row.className = 'ckrow';
@@ -2131,6 +2138,55 @@ function wireContextMenu(){
   nodesEl.addEventListener('contextmenu', ev => {
     const el = ev.target.closest('.node'); if(!el) return;
     ev.preventDefault(); showCtx(el.dataset.id, ev.clientX, ev.clientY);
+  });
+}
+
+/* ---- right-click empty canvas → create a node in that area ---- */
+const KIND_NAME = { problem:'Problem', hypothesis:'Hypothesis', solution:'Solution', gap:'Gap / blocker', seed:'Seed', synthesis:'Synthesis' };
+function createFreeNode(kind, x, y){
+  const region = KIND_REGION[kind] || 'solve';
+  const title = prompt(KIND_HINT[kind] || 'Title:', ''); if(title === null || !title.trim()) return;
+  const id = 'n' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
+  NODES[id] = { kind, region, t: title.trim(), x, y, facets: {}, fresh: true };
+  THREADS[id] = { eyebrow: kind + ' · ' + id, msgs: [], dist: null, conf: 0, stale: 'freeform' };
+  if(typeof NODEDATA !== 'undefined') NODEDATA[id] = { id, kind, region, title: title.trim(), state: 'freeform', freeform: true, distillate: null, confidence: null, facets: [], body: '' };
+  WV.mutate('upsertNode', { node: { id, kind, region, title: title.trim(), state: 'freeform' } }).catch(()=>{});
+  sel = id; render(); showThreadFor(id); if(window.__reheat) window.__reheat(0.55);
+}
+function showCanvasCtx(sx, sy, cx, cy){
+  const m = ctxEls(); m.innerHTML = '';
+  const solve = sx < 505;
+  const here = solve ? ['problem','hypothesis','solution','gap'] : ['seed','synthesis'];
+  const other = solve ? ['seed','synthesis'] : ['problem','hypothesis','solution','gap'];
+  const head = document.createElement('div'); head.className = 'ck-head';
+  head.textContent = 'New node · ' + (solve ? 'Solving' : 'Creating') + ' area'; m.appendChild(head);
+  const add = k => { const d = document.createElement('div'); d.className = 'ci';
+    d.innerHTML = '<span class="ic" style="color:var(--k-' + k + ')">●</span>' + KIND_NAME[k];
+    d.title = KIND_HINT[k] || '';
+    d.addEventListener('click', ev => { ev.stopPropagation(); hideCtx(); createFreeNode(k, sx, sy); });
+    m.appendChild(d); };
+  here.forEach(add);
+  const sep = document.createElement('div'); sep.className = 'sep'; m.appendChild(sep);
+  const oh = document.createElement('div'); oh.className = 'ck-head'; oh.textContent = (solve ? 'Creating' : 'Solving') + ' area'; m.appendChild(oh);
+  other.forEach(add);
+  m.classList.add('on');
+  const mw = m.offsetWidth || 190, mh = m.offsetHeight || 240; let px = cx, py = cy;
+  if(px + mw > window.innerWidth - 8) px = window.innerWidth - mw - 8;
+  if(py + mh > window.innerHeight - 8) py = window.innerHeight - mh - 8;
+  m.style.left = Math.max(8, px) + 'px'; m.style.top = Math.max(8, py) + 'px';
+}
+function wireCanvasCreate(){
+  const wrap = document.querySelector('.canvas-wrap'); if(!wrap) return;
+  wrap.addEventListener('contextmenu', ev => {
+    if(!ev.target.closest('#graphview')) return;
+    if(ev.target.closest('.node')) return;
+    if(ev.target.closest('.rpill, .scout, .scoutmarker, .scoutbadge, #ctxMenu, .badge, .facet')) return;
+    ev.preventDefault();
+    const r = wrap.getBoundingClientRect();
+    const v = window.__view || { panX:0, panY:0, scale:1 };
+    const sx = (ev.clientX - r.left - v.panX) / v.scale;
+    const sy = (ev.clientY - r.top - v.panY) / v.scale;
+    showCanvasCtx(sx, sy, ev.clientX, ev.clientY);
   });
 }
 
@@ -2263,6 +2319,7 @@ async function boot(){
   wireModeToggle();
   wireTutorial();
   wireContextMenu();
+  wireCanvasCreate();
   wireMobile();
   applyProject(WEAVE_GRAPH);
   sel = (WEAVE_GRAPH.nodes[0] || {}).id || null;
