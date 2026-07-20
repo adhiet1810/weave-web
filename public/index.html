@@ -428,6 +428,17 @@
   .nodepop .pd{font-size:11.5px;line-height:1.4;color:var(--body);margin-top:6px}
   .nodepop .pf{font-family:'IBM Plex Mono';font-size:9px;color:var(--mute);margin-top:7px}
 
+  #distillProp{margin-top:10px;border:1px dashed var(--solve-e3,#9c9);border-radius:8px;background:var(--canvas);padding:10px 11px}
+  #distillProp .dp-h{font-family:'IBM Plex Mono';font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--solve);margin-bottom:5px}
+  #distillProp .dp-t{font-size:12.5px;line-height:1.45;color:var(--ink);letter-spacing:-.2px}
+  #distillProp .dp-caveat{font-family:'IBM Plex Mono';font-size:10.5px;color:var(--k-gap,#c00);border:1px dashed var(--k-gap,#c00);border-radius:6px;padding:6px 8px;margin-top:8px;line-height:1.4}
+  #distillProp .dp-g{margin-top:8px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+  #distillProp .dp-gl{font-family:'IBM Plex Mono';font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+  #distillProp .dg{font-family:'IBM Plex Mono';font-size:9.5px;color:var(--body);background:var(--inset,#f2f2f2);border:1px solid var(--hairline);border-radius:5px;padding:2px 6px}
+  #distillProp .dp-a{display:flex;gap:7px;margin-top:11px}
+  #distillProp .dp-accept{background:var(--solve,#003c33);color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:600;font-family:'Inter',sans-serif}
+  #distillProp .dp-reject{background:transparent;color:var(--mute);border:1px solid var(--hairline);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+
   .projname{cursor:text;border-bottom:1px dashed transparent;padding-bottom:1px}
   .projname:hover{border-bottom-color:var(--hairline-strong,#999)}
   .projacts{display:inline-flex;gap:6px;margin-left:10px}
@@ -1386,16 +1397,7 @@ composerSend.addEventListener('click',sendComposer);
 composerInput.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();sendComposer();} });
 
 /* ============ distillate regenerate ============ */
-document.getElementById('th-regen').addEventListener('click',ev=>{
-  ev.stopPropagation();
-  const dtext=document.getElementById('th-dtext');
-  const bar=document.getElementById('th-bar');
-  const stale=document.getElementById('th-stale');
-  const prev=dtext.textContent, prevW=bar.style.width;
-  dtext.textContent='↻ re-synthesising from the thread…';
-  bar.style.width='0%'; stale.textContent='live';
-  setTimeout(()=>{ dtext.textContent=prev; bar.style.width=prevW; },520);
-});
+document.getElementById('th-regen').addEventListener('click',ev=>{ ev.stopPropagation(); const _id=(sel||'').split('.')[0]; if(_id && NODES[_id]) runDistill(_id); else flash('Select a node first.'); });
 
 /* ============ deselect / focus exit / esc ============ */
 function deselect(){ sel=null; expanded.clear(); focused=null; render(); showThreadFor(null); }
@@ -1690,6 +1692,73 @@ async function acceptSynth(p){
     flash('Synthesis added — reloading graph…');
     await reload();
   }catch(e){ flash('add failed: ' + e.message); }
+}
+
+/* ============ Distill this node — AI proposes the settled one-line claim ============ */
+function gatherDistillContext(id){
+  const n = NODES[id]; if(!n) return null;
+  const nd = (typeof NODEDATA !== 'undefined' && NODEDATA[id]) || {};
+  const facets = (nd.facets && nd.facets.length
+      ? nd.facets.map(f => ({ name:f.name, semantic:f.semantic||'informational', note:f.distillate||null }))
+      : Object.values(n.facets||{}).map(f => ({ name:f.name, semantic:f.sem||'informational', note:(f.v && f.v!=='(no note yet)')?f.v:null })));
+  const neighbors = [], inherited_gaps = [];
+  (typeof STRUCT !== 'undefined' ? STRUCT : []).forEach(e => {
+    if(e.a !== id && e.b !== id) return;
+    const otherId = e.a === id ? e.b : e.a; const dir = e.a === id ? 'out' : 'in';
+    const o = NODES[otherId]; if(!o) return;
+    const od = (typeof NODEDATA !== 'undefined' && NODEDATA[otherId]) || {};
+    const distill = od.distillate || (THREADS[otherId] && THREADS[otherId].dist) || null;
+    neighbors.push({ id:otherId, rel:e.l, dir, kind:o.kind, title:o.t, distillate:distill });
+    if(o.kind === 'gap' && e.l === 'blocks' && dir === 'in') inherited_gaps.push({ id:otherId, text: distill || o.t });
+  });
+  return {
+    node: { id, kind:n.kind, title:n.t, body:(nd.body!=null?nd.body:'')||'', current_distillate:(nd.distillate || (THREADS[id]&&THREADS[id].dist) || null) },
+    facets, neighbors, inherited_gaps
+  };
+}
+async function runDistill(id){
+  const n = NODES[id]; if(!n) return;
+  const ctx = gatherDistillContext(id); if(!ctx) return;
+  const dtext = document.getElementById('th-dtext');
+  const prev = dtext ? dtext.textContent : '';
+  if(dtext) dtext.textContent = '↻ distilling from notes, dimensions & neighbours…';
+  try{
+    const { proposal } = await WV.ai({ action:'distill', context:ctx });
+    if(!proposal || !proposal.distillate) throw new Error('empty proposal');
+    showDistillProposal(id, proposal);
+  }catch(e){
+    if(dtext) dtext.textContent = prev;
+    flash('distill failed: ' + (e.message||e) + ' — is the AI key set on the server?');
+  }
+}
+function showDistillProposal(id, p){
+  const box = document.getElementById('th-distillate'); if(!box) return;
+  const pct = Math.round((typeof p.confidence === 'number' ? p.confidence : 0.5) * 100);
+  const grounds = (p.grounded_in || []).map(g => '<span class="dg">' + (g.source||'') + (g.note ? (' — ' + g.note) : '') + '</span>').join('');
+  let card = document.getElementById('distillProp');
+  if(!card){ card = document.createElement('div'); card.id = 'distillProp'; box.appendChild(card); }
+  card.innerHTML =
+    '<div class="dp-h">◈ proposed distillate · confidence 0.' + pct + '</div>' +
+    '<div class="dp-t">' + (p.distillate || '') + '</div>' +
+    (p.caveat ? '<div class="dp-caveat">⚑ ' + p.caveat + '</div>' : '') +
+    (grounds ? '<div class="dp-g"><span class="dp-gl">grounded in</span>' + grounds + '</div>' : '') +
+    '<div class="dp-a"><button class="dp-accept" id="dpAccept">✓ Accept</button><button class="dp-reject" id="dpReject">Discard</button></div>';
+  card.querySelector('#dpAccept').addEventListener('click', ev => { ev.stopPropagation(); acceptDistill(id, p, pct/100); });
+  card.querySelector('#dpReject').addEventListener('click', ev => { ev.stopPropagation(); card.remove(); if(sel) showThreadFor(sel); });
+}
+async function acceptDistill(id, p, confFrac){
+  const n = NODES[id]; if(!n) return;
+  const nd = (typeof NODEDATA !== 'undefined' && NODEDATA[id]) || {};
+  const dist = p.distillate;
+  n.fresh = false;
+  if(THREADS[id]){ THREADS[id].dist = dist; THREADS[id].conf = Math.round(confFrac*100); THREADS[id].stale = 'live'; }
+  if(typeof NODEDATA !== 'undefined' && NODEDATA[id]){ const x = NODEDATA[id]; x.distillate = dist; x.confidence = confFrac; x.state = 'distilled'; x.freeform = false; }
+  const card = document.getElementById('distillProp'); if(card) card.remove();
+  render(); showThreadFor(id);
+  try{
+    await WV.mutate('editNode', { id, title:n.t, kind:n.kind, region:n.region, state:'distilled', distillate:dist, confidence:confFrac, body:(nd.body!=null?nd.body:'')||'' });
+    flash('Distillate saved.');
+  }catch(e){ flash('save failed: ' + (e.message||e)); }
 }
 
 /* ============ project bar — name, load example, new blank ============ */
@@ -2232,6 +2301,12 @@ const TOUR_STEPS = [
   { t:'Open a node', sel:'#nodes .node', emptySel:'#btnLoadExample',
     h:'Click any circle to open its thread on the right: its distillate, its facets, and a space to think alongside the AI. <b>Right-click</b> a circle for quick actions — rename, connect, add a dimension, change kind, delete — without leaving the canvas.',
     emptyH:'Your project is empty right now. Click <b>⟳ Load example</b> up here to bring in a full graph — then click (or right-click) any circle.' },
+  { t:'Think with the AI', sel:'.composer', setup:'selectNode', emptySel:'#btnLoadExample',
+    h:'At the bottom of the panel, <b>“Continue this thread with the AI…”</b> is a thinking partner. Ask it to tighten a constraint, poke a hole, or suggest a next move. It knows the node’s <b>kind</b> and whether you’re <b>solving</b> or <b>creating</b>, so its replies follow that vector. <i>(If replies say “offline”, the AI key isn’t set on the server yet.)</i>',
+    emptyH:'Load the example (<b>⟳</b> up here) and open a circle — the AI thread sits at the bottom of its panel.' },
+  { t:'Distil with the AI', sel:'#th-regen', setup:'selectNode', emptySel:'#btnLoadExample',
+    h:'Press <b>↻ regenerate</b> and the AI reads the node’s notes, its dimensions, and its neighbours, then proposes one settled <b>distillate</b> — with a confidence score and a <b>“grounded in”</b> trace so you can see what it’s based on. You <b>Accept</b> or <b>Discard</b>; it never overwrites silently.',
+    emptyH:'With a node open, <b>↻ regenerate</b> (top-right of the distillate box) asks the AI for a settled one-line claim.' },
   { t:'Connect ideas', sel:'#connectBtn', setup:'selectNode', emptySel:'#btnLoadExample',
     h:'Nodes join with <i>typed</i> edges. A problem <b>decomposes</b> into hypotheses; a hypothesis <b>answers</b> toward a solution; a gap <b>sparks</b> a seed. Select a node, then Connect.',
     emptyH:'Connecting needs a node selected. Load the example (<b>⟳</b> up here), click a circle, then use <b>connect</b> in its panel to draw a typed edge.' },
@@ -2240,8 +2315,9 @@ const TOUR_STEPS = [
     emptyH:'Dimensions attach to a selected node. With the example loaded and a circle selected, <b>+ dimension</b> adds a facet like cost or time.' },
   { t:'Solve vs Create', sel:'.modeseg',
     h:'Set the session lean. <b>Solve</b> converges — decompose and close. <b>Create</b> diverges — combine and branch. One graph, two ways of moving through it.' },
-  { t:'Synthesize', sel:'.aiact', matchText:'Synthesize', setup:'create',
-    h:'In Create mode, <b>◈ Synthesize</b> fuses several seeds into one new whole. The AI proposes it on the novel × feasible frame — you accept or discard. <i>AI proposes, you dispose.</i>' },
+  { t:'Synthesize', sel:'.aiact', matchText:'Synthesize', setup:'create', emptySel:'#advToggle',
+    h:'In Create mode, <b>◈ Synthesize</b> fuses several seeds into one new whole. The AI proposes it on the novel × feasible frame — you accept or discard. <i>AI proposes, you dispose.</i>',
+    emptyH:'◈ Synthesize lives in <b>Advanced</b> mode. Click <b>⚙ Advanced</b> up here to reveal the AI actions, then switch to <b>Create</b> and press ◈ Synthesize.' },
   { t:'The gap & the seam', sel:'#stage',
     h:'When a vector runs out — a solution blocked by something external — a <b>gap</b> (the red circle) appears. Flip it, and the blocker becomes a spark feeding a fresh seed. That turn is the <b>seam</b> between solving and creating.' },
   { t:'You’re ready', center:true,
