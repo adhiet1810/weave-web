@@ -470,15 +470,16 @@
     .aibar,.modeseg,.seg{flex:0 0 auto}
     .rail{position:fixed;top:0;left:0;bottom:0;width:82%;max-width:300px;z-index:8000;transform:translateX(-102%);transition:transform .25s ease;box-shadow:6px 0 40px rgba(0,0,0,.28);border-right:1px solid var(--hairline)}
     .rail.m-open{transform:translateX(0)}
-    .inspect{position:fixed;left:0;right:0;bottom:0;width:auto;flex-basis:auto;height:76vh;z-index:8000;transform:translateY(103%);transition:transform .28s ease;border-left:none;border-top:1px solid var(--hairline);border-radius:16px 16px 0 0;box-shadow:0 -10px 44px rgba(0,0,0,.24)}
+    .inspect{position:fixed;left:0;right:0;bottom:0;width:auto;flex-basis:auto;height:54vh;z-index:8000;transform:translateY(103%);transition:transform .28s ease,height .24s ease;border-left:none;border-top:1px solid var(--hairline);border-radius:16px 16px 0 0;box-shadow:0 -10px 44px rgba(0,0,0,.24)}
     .inspect.m-open{transform:translateY(0)}
+    .inspect.m-expanded{height:90vh}
     .canvas-wrap{touch-action:none}
     .hint{display:none}
     .fitbtn{bottom:auto;top:10px;right:10px}
     #mHamb{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1px solid var(--hairline);border-radius:7px;background:var(--canvas);color:var(--ink);font-size:15px;cursor:pointer;flex:0 0 auto}
     #mZoom{display:flex;flex-direction:column;gap:6px;position:fixed;left:12px;bottom:16px;z-index:7000}
     #mZoom button{width:38px;height:38px;border-radius:10px;border:1px solid var(--hairline);background:var(--page);color:var(--ink);font-size:19px;font-weight:600;cursor:pointer;box-shadow:var(--sh-2)}
-    .sheet-handle{display:flex;align-items:center;position:relative;padding:11px 14px 6px}
+    .sheet-handle{display:flex;align-items:center;position:relative;padding:13px 14px 8px;cursor:pointer;user-select:none}
     .sheet-handle .bar{position:absolute;left:50%;transform:translateX(-50%);top:6px;width:38px;height:4px;border-radius:3px;background:var(--hairline-strong,#ccc)}
     .sheet-handle .sx{margin-left:auto;font-size:17px;color:var(--mute);cursor:pointer;background:none;border:none;line-height:1}
     /* context menu → compact bottom action sheet, so the top of the map stays visible */
@@ -1940,7 +1941,7 @@ function syncBackdrop(){
 function toggleRail(){ const r = document.querySelector('.rail'); if(r){ r.classList.toggle('m-open'); syncBackdrop(); } }
 function closeRail(){ const r = document.querySelector('.rail'); if(r) r.classList.remove('m-open'); syncBackdrop(); }
 function openSheet(){ const i = document.querySelector('.inspect'); if(i){ i.classList.add('m-open'); syncBackdrop(); } }
-function closeSheet(){ const i = document.querySelector('.inspect'); if(i) i.classList.remove('m-open'); syncBackdrop(); }
+function closeSheet(){ const i = document.querySelector('.inspect'); if(i){ i.classList.remove('m-open'); i.classList.remove('m-expanded'); } syncBackdrop(); }
 function mZoomStep(dir){
   const w = document.querySelector('.canvas-wrap'); if(!w) return;
   const r = w.getBoundingClientRect();
@@ -1955,7 +1956,9 @@ function wireMobile(){
   if(insp){
     const handle = _mk('div', null, 'sheet-handle', '<span class="bar"></span><button class="sx" title="Close">✕</button>');
     insp.insertBefore(handle, insp.firstChild);
-    handle.querySelector('.sx').addEventListener('click', closeSheet);
+    handle.querySelector('.sx').addEventListener('click', ev => { ev.stopPropagation(); closeSheet(); });
+    // tap the grab-bar to expand the half-sheet to full (and back)
+    handle.addEventListener('click', ev => { if(ev.target.closest('.sx')) return; insp.classList.toggle('m-expanded'); });
   }
   const zoom = _mk('div', 'mZoom', null, '<button id="mZin" aria-label="Zoom in">+</button><button id="mZout" aria-label="Zoom out">−</button>');
   document.body.appendChild(zoom);
