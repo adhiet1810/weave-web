@@ -57,12 +57,17 @@ dimensions (facets), and its neighbours support.
 You are given: the node (kind, title, body, current_distillate); its facets; its
 neighbours — each with "rel" and "dir" ("out" = this node points to it, "in" = it points
 to this node); and any inherited blocking gaps.
-Write ONE line (max ~25 words) capturing what this node now claims. Set confidence 0..1 by
-how well the inputs support it — thin/freeform notes → low; corroborated by facets and
-neighbours → high. In grounded_in, name the specific inputs that justify the line (use
-sources like "body", "facet:<name>", or "node:<id>"). If a blocking gap is inherited and
-unresolved, do NOT claim it is solved — state that limitation in caveat. Introduce no facts
-not present in the inputs.`;
+Write ONE line (max ~25 words). If the node is RESOLVED — the answer has landed — state the
+settled claim plainly. If it is UNRESOLVED — options still compete, no answer is chosen, or a
+blocking gap is open — phrase the line as an explicit OPEN STATUS naming the unsettled
+decision (e.g. "Open: push vs pull delivery is unsettled"), NOT as an imperative or a to-do
+(never write "must be defined" / "needs to be").
+Always return a numeric confidence in 0..1, calibrated: unresolved/open nodes → 0.30 or below;
+reserve above 0.70 for claims corroborated by several neighbours and facets. Never default to
+0.5 — commit to a real number.
+In grounded_in, name the specific inputs that justify the line (sources like "body",
+"facet:<name>", or "node:<id>"). If a blocking gap is inherited and unresolved, do NOT claim
+it is solved — state that limitation in caveat. Introduce no facts not present in the inputs.`;
 
 const DISTILL_JSON_HINT = `Return ONLY a single JSON object — no prose, no markdown fences — with exactly these keys:
 "distillate" (string), "confidence" (number 0..1),

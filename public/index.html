@@ -1733,30 +1733,38 @@ async function runDistill(id){
 }
 function showDistillProposal(id, p){
   const box = document.getElementById('th-distillate'); if(!box) return;
-  const pct = Math.round((typeof p.confidence === 'number' ? p.confidence : 0.5) * 100);
-  const grounds = (p.grounded_in || []).map(g => '<span class="dg">' + (g.source||'') + (g.note ? (' — ' + g.note) : '') + '</span>').join('');
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const hasConf = typeof p.confidence === 'number';
+  const confLabel = hasConf ? ('confidence ' + p.confidence.toFixed(2)) : 'confidence — unset';
+  const grounds = (p.grounded_in || []).map(g => {
+    let label = String(g.source || '');
+    const m = /^node:(.+)$/.exec(label);
+    if(m){ const nn = NODES[m[1]]; label = nn ? ('“' + nn.t + '” (' + m[1] + ')') : label; }
+    return '<span class="dg">' + esc(label) + (g.note ? (' — ' + esc(g.note)) : '') + '</span>';
+  }).join('');
   let card = document.getElementById('distillProp');
   if(!card){ card = document.createElement('div'); card.id = 'distillProp'; box.appendChild(card); }
   card.innerHTML =
-    '<div class="dp-h">◈ proposed distillate · confidence 0.' + pct + '</div>' +
-    '<div class="dp-t">' + (p.distillate || '') + '</div>' +
-    (p.caveat ? '<div class="dp-caveat">⚑ ' + p.caveat + '</div>' : '') +
+    '<div class="dp-h">◈ proposed distillate · ' + confLabel + '</div>' +
+    '<div class="dp-t">' + esc(p.distillate || '') + '</div>' +
+    (p.caveat ? '<div class="dp-caveat">⚑ ' + esc(p.caveat) + '</div>' : '') +
     (grounds ? '<div class="dp-g"><span class="dp-gl">grounded in</span>' + grounds + '</div>' : '') +
     '<div class="dp-a"><button class="dp-accept" id="dpAccept">✓ Accept</button><button class="dp-reject" id="dpReject">Discard</button></div>';
-  card.querySelector('#dpAccept').addEventListener('click', ev => { ev.stopPropagation(); acceptDistill(id, p, pct/100); });
+  card.querySelector('#dpAccept').addEventListener('click', ev => { ev.stopPropagation(); acceptDistill(id, p, hasConf ? p.confidence : null); });
   card.querySelector('#dpReject').addEventListener('click', ev => { ev.stopPropagation(); card.remove(); if(sel) showThreadFor(sel); });
 }
 async function acceptDistill(id, p, confFrac){
   const n = NODES[id]; if(!n) return;
   const nd = (typeof NODEDATA !== 'undefined' && NODEDATA[id]) || {};
   const dist = p.distillate;
+  const hasConf = typeof confFrac === 'number';
   n.fresh = false;
-  if(THREADS[id]){ THREADS[id].dist = dist; THREADS[id].conf = Math.round(confFrac*100); THREADS[id].stale = 'live'; }
-  if(typeof NODEDATA !== 'undefined' && NODEDATA[id]){ const x = NODEDATA[id]; x.distillate = dist; x.confidence = confFrac; x.state = 'distilled'; x.freeform = false; }
+  if(THREADS[id]){ THREADS[id].dist = dist; THREADS[id].conf = hasConf ? Math.round(confFrac*100) : 0; THREADS[id].stale = 'live'; }
+  if(typeof NODEDATA !== 'undefined' && NODEDATA[id]){ const x = NODEDATA[id]; x.distillate = dist; x.confidence = hasConf ? confFrac : null; x.state = 'distilled'; x.freeform = false; }
   const card = document.getElementById('distillProp'); if(card) card.remove();
   render(); showThreadFor(id);
   try{
-    await WV.mutate('editNode', { id, title:n.t, kind:n.kind, region:n.region, state:'distilled', distillate:dist, confidence:confFrac, body:(nd.body!=null?nd.body:'')||'' });
+    await WV.mutate('editNode', { id, title:n.t, kind:n.kind, region:n.region, state:'distilled', distillate:dist, confidence: hasConf ? confFrac : null, body:(nd.body!=null?nd.body:'')||'' });
     flash('Distillate saved.');
   }catch(e){ flash('save failed: ' + (e.message||e)); }
 }
