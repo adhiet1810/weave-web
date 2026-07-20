@@ -575,12 +575,12 @@
 
       <div class="lg-kinds">
       <h4>Node kinds</h4>
-      <div class="lg-row gl" title="A question or goal you're trying to resolve — where the solve side starts."><span class="lg-node k-problem"></span>Problem</div>
-      <div class="lg-row gl" title="A claim or approach that might solve the problem — something to test."><span class="lg-node k-hypo"></span>Hypothesis</div>
-      <div class="lg-row gl" title="The concrete method that realises a hypothesis."><span class="lg-node k-solution"></span>Solution</div>
-      <div class="lg-row gl" title="A raw idea, not yet worked out — where the create side starts."><span class="lg-node k-seed"></span>Seed</div>
-      <div class="lg-row gl" title="Several seeds fused into one new whole."><span class="lg-node k-syn"></span>Synthesis</div>
-      <div class="lg-row gl" title="A blocker — an external wall. Flip it into a spark to get unstuck."><span class="lg-node k-gap"></span>Gap</div>
+      <div class="lg-row gl" title="Problem — what's wrong, or what do you want to change? e.g. 'I overspend on food every month'. Where the solve side starts."><span class="lg-node k-problem"></span>Problem</div>
+      <div class="lg-row gl" title="Hypothesis — what could be true, or what might work? e.g. 'Meal-prepping on Sundays would cut it'."><span class="lg-node k-hypo"></span>Hypothesis</div>
+      <div class="lg-row gl" title="Solution — how, exactly, would you do it? e.g. 'Batch-cook 5 lunches every Sunday 6pm'."><span class="lg-node k-solution"></span>Solution</div>
+      <div class="lg-row gl" title="Seed — a loose idea, no problem attached yet. e.g. 'What if the office catered lunch?'. Where the create side starts."><span class="lg-node k-seed"></span>Seed</div>
+      <div class="lg-row gl" title="Synthesis — what do several ideas combine into? e.g. 'Hybrid: office cater + 2 home days'."><span class="lg-node k-syn"></span>Synthesis</div>
+      <div class="lg-row gl" title="Gap — a blocker in the way. What's stopping this from working? e.g. 'I travel most weekends'. Flip it into a spark to get unstuck."><span class="lg-node k-gap"></span>Gap</div>
       </div>
 
       <div class="lg-states">
@@ -1228,19 +1228,53 @@ const REL_GLOSS={
   refines:'a cleaner restatement',
   shares:'share a dimension (cost, time…)'
 };
-function showRelPicker(src,tgt){
-  document.querySelectorAll('.relpicker').forEach(p=>p.remove());
-  const tel=nodesEl.querySelector('.node[data-id="'+tgt+'"]'); if(!tel||!NODES[src]||!NODES[tgt])return;
+// Grammar: canonical directed edges. Direction comes from the KINDS, not the drag.
+const GRAMMAR={
+  'problem>hypothesis':['decomposes'],
+  'problem>problem':['decomposes'],
+  'hypothesis>hypothesis':['decomposes'],
+  'hypothesis>solution':['answers'],
+  'gap>solution':['blocks'],
+  'gap>hypothesis':['blocks'],
+  'gap>seed':['sparks'],
+  'seed>seed':['sparks'],
+  'seed>synthesis':['combines']
+};
+function resolveEdge(src,tgt){
+  const ka=NODES[src].kind, kb=NODES[tgt].kind;
+  let rels=GRAMMAR[ka+'>'+kb]; if(rels) return {from:src,to:tgt,rels};
+  rels=GRAMMAR[kb+'>'+ka]; if(rels) return {from:tgt,to:src,rels};  // auto-flip so e.g. a gap always points outward
+  return null;
+}
+function _relPickerUI(from,to,rels,anchor){
+  const tel=nodesEl.querySelector('.node[data-id="'+anchor+'"]'); if(!tel) return;
   const r=tel.getBoundingClientRect();
-  const sug=suggestRel(NODES[src].kind,NODES[tgt].kind);
-  const rels=[sug].concat(['decomposes','answers','sparks','combines','blocks','shares','refines'].filter(x=>x!==sug));
   const m=document.createElement('div'); m.className='relpicker';
   m.style.left=(r.left+r.width/2)+'px'; m.style.top=(r.bottom+7)+'px';
-  m.innerHTML='<div class="rp-h">'+NODES[src].kind+' → '+NODES[tgt].kind+'</div>';
+  m.innerHTML='<div class="rp-h">'+NODES[from].kind+' → '+NODES[to].kind+'</div>';
   rels.forEach((rl,i)=>{ const btn=document.createElement('button');
-    btn.innerHTML='<span class="rl-n">'+rl+(i===0?' <em>· suggested</em>':'')+'</span><span class="rl-d">'+(REL_GLOSS[rl]||'')+'</span>';
-    btn.addEventListener('click',ev=>{ ev.stopPropagation(); addEdge(src,tgt,rl); endConnect(); }); m.appendChild(btn); });
+    btn.innerHTML='<span class="rl-n">'+rl+(i===0&&rels.length>1?' <em>· suggested</em>':'')+'</span><span class="rl-d">'+(REL_GLOSS[rl]||'')+'</span>';
+    btn.addEventListener('click',ev=>{ ev.stopPropagation(); addEdge(from,to,rl); endConnect(); }); m.appendChild(btn); });
   document.body.appendChild(m);
+}
+function showRelPicker(src,tgt){
+  document.querySelectorAll('.relpicker').forEach(p=>p.remove());
+  if(!NODES[src]||!NODES[tgt]||src===tgt) return;
+  const res=resolveEdge(src,tgt);
+  if(document.body.classList.contains('mode-simple')){
+    if(!res){
+      const msg="A "+NODES[src].kind+" and "+NODES[tgt].kind+" don't connect directly — route through the right node.";
+      if(typeof flash==='function') flash(msg); else if(typeof hint!=='undefined'&&hint) hint.innerHTML=msg;
+      endConnect(); return;
+    }
+    if(res.rels.length===1){ addEdge(res.from,res.to,res.rels[0]); endConnect(); return; }
+    _relPickerUI(res.from,res.to,res.rels,tgt); return;
+  }
+  // advanced: full free picker, but oriented to the canonical direction when one exists
+  const from = res?res.from:src, to = res?res.to:tgt;
+  const sug=suggestRel(NODES[from].kind,NODES[to].kind);
+  const rels=[sug].concat(['decomposes','answers','sparks','combines','blocks','shares','refines'].filter(x=>x!==sug));
+  _relPickerUI(from,to,rels,tgt);
 }
 document.getElementById('connectBtn').addEventListener('click',ev=>{
   ev.stopPropagation();
@@ -1783,18 +1817,28 @@ async function doRename(){
 }
 /* ---- guided next-step chips: offer the legal reasoning moves for a node ---- */
 const NEXT_MOVES = {
-  problem:[{label:'＋ Hypothesis', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'A claim that might solve it:'}],
+  problem:[{label:'＋ Hypothesis', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'What could be true — what might solve it?  e.g. "Meal-prepping on Sundays would cut it"'}],
   hypothesis:[
-    {label:'＋ Solution', kind:'solution', rel:'answers', dir:'out', prompt:'The method that realises it:'},
-    {label:'＋ Open question', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:"A sub-question you'll work out:"}
+    {label:'＋ Solution', kind:'solution', rel:'answers', dir:'out', prompt:'How, exactly, would you do it?  e.g. "Batch-cook 5 lunches every Sunday 6pm"'},
+    {label:'＋ Open question', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'A sub-question you still need to work out.  e.g. "Which meals actually travel well?"'},
+    {label:'⚑ Blocker', kind:'gap', rel:'blocks', dir:'in', prompt:'What is stopping this approach from working?  e.g. "I travel most weekends"'}
   ],
-  solution:[{label:'⚑ Blocker', kind:'gap', rel:'blocks', dir:'in', prompt:'What blocks this solution:'}],
-  gap:[{label:'⚡ Flip to a spark', kind:'seed', rel:'sparks', dir:'out', prompt:'The idea this blocker sparks:'}],
+  solution:[{label:'⚑ Blocker', kind:'gap', rel:'blocks', dir:'in', prompt:'What is stopping this solution from working?  e.g. "No kitchen at the office"'}],
+  gap:[{label:'⚡ Flip to a spark', kind:'seed', rel:'sparks', dir:'out', prompt:'What idea does this blocker spark?  e.g. "What if the office catered lunch?"'}],
   seed:[
-    {label:'＋ Spark an idea', kind:'seed', rel:'sparks', dir:'out', prompt:'A new idea this inspires:'},
-    {label:'◈ Combine → synthesis', kind:'synthesis', rel:'combines', dir:'out', prompt:'The fused idea:'}
+    {label:'＋ Spark an idea', kind:'seed', rel:'sparks', dir:'out', prompt:'A new idea this one inspires.  e.g. "A subscription meal service"'},
+    {label:'◈ Combine → synthesis', kind:'synthesis', rel:'combines', dir:'out', prompt:'What do these ideas fuse into?  e.g. "Hybrid: office cater + 2 home days"'}
   ],
   synthesis:[]
+};
+/* one-line fill-hint per kind — reused by the edit modal + context kind-pickers */
+const KIND_HINT = {
+  problem:"Problem — what's wrong or what you want to change?  e.g. 'I overspend on food every month'",
+  hypothesis:"Hypothesis — what could be true or might work?  e.g. 'Meal-prepping on Sundays would cut it'",
+  solution:"Solution — how, exactly, would you do it?  e.g. 'Batch-cook 5 lunches every Sunday 6pm'",
+  gap:"Gap / blocker — what's stopping this from working?  e.g. 'I travel most weekends'",
+  seed:"Seed — a loose idea, no problem attached yet.  e.g. 'What if the office catered lunch?'",
+  synthesis:"Synthesis — what do several ideas combine into?  e.g. 'Hybrid: office cater + 2 home days'"
 };
 function addLinkedNode(srcId, mv){
   const s = NODES[srcId]; if(!s) return;
@@ -2001,7 +2045,7 @@ function showCtx(id, x, y){
   const row = document.createElement('div'); row.className = 'ckrow';
   KIND_LIST.forEach(k => {
     const d = document.createElement('span'); d.className = 'ckdot' + (n.kind === k ? ' cur' : '');
-    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = k;
+    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = KIND_HINT[k] || k;
     d.addEventListener('click', ev => { ev.stopPropagation(); hideCtx(); ctxChangeKind(id, k); });
     row.appendChild(d);
   });
@@ -2050,7 +2094,7 @@ function openEdit(id){
   const kwrap = m.querySelector('#emKinds'); kwrap.innerHTML = '';
   KIND_LIST.forEach(k => {
     const d = document.createElement('span'); d.className = 'emk' + (k === _editKind ? ' sel' : '');
-    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = k;
+    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = KIND_HINT[k] || k;
     d.addEventListener('click', () => { _editKind = k; kwrap.querySelectorAll('.emk').forEach(x => x.classList.toggle('sel', x.title === k)); });
     kwrap.appendChild(d);
   });
