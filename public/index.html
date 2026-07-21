@@ -481,6 +481,9 @@
   #projMenu .pm-foot{display:flex;gap:6px;border-top:1px solid var(--hairline,#eee);margin-top:5px;padding-top:6px}
   #projMenu .pm-act{flex:1;font-family:'IBM Plex Mono';font-size:10px;border:1px solid var(--hairline,#ddd);border-radius:6px;background:var(--canvas,#fafafa);color:var(--body,#444);padding:7px 6px;cursor:pointer}
   #projMenu .pm-act:hover{border-color:var(--create,#ab570a);color:var(--create,#ab570a)}
+  /* instant legend tooltip (native title has a ~1.5s delay) */
+  #legendTip{position:fixed;z-index:10060;max-width:262px;background:var(--ink,#141414);color:var(--page,#fff);font-family:'Inter',system-ui,sans-serif;font-size:11.5px;line-height:1.5;letter-spacing:-.1px;padding:9px 11px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .12s}
+  #legendTip.on{opacity:1}
 
   /* simple mode — hide advanced chrome for first-time users */
   body.mode-simple #aibar{display:none}
@@ -2089,6 +2092,26 @@ function wireModeToggle(){
   applyMode();
 }
 
+/* ---- custom legend tooltips: instant styled popup on hover (native title lags ~1.5s) ---- */
+function wireLegendTips(){
+  let tip = document.getElementById('legendTip');
+  if(!tip){ tip = document.createElement('div'); tip.id = 'legendTip'; document.body.appendChild(tip); }
+  const place = el => {
+    const r = el.getBoundingClientRect();
+    let left = r.right + 10, top = r.top - 2;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    if(left + tw > window.innerWidth - 8) left = r.left - tw - 10;
+    if(left < 8) left = 8;
+    if(top + th > window.innerHeight - 8) top = window.innerHeight - th - 8;
+    tip.style.left = left + 'px'; tip.style.top = Math.max(8, top) + 'px';
+  };
+  document.querySelectorAll('.rail .gl').forEach(el => {
+    const t = el.getAttribute('title'); if(t){ el.setAttribute('data-tip', t); el.removeAttribute('title'); }
+    el.addEventListener('mouseenter', () => { const txt = el.getAttribute('data-tip'); if(!txt) return; tip.textContent = txt; tip.classList.add('on'); place(el); });
+    el.addEventListener('mouseleave', () => tip.classList.remove('on'));
+  });
+}
+
 function wireProjectBar(){
   const n = document.getElementById('projName'); if(n) n.addEventListener('click', doRename);
   const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', doLoadExample);
@@ -2556,6 +2579,7 @@ async function boot(){
   wireContextMenu();
   wireCanvasCreate();
   wireMobile();
+  wireLegendTips();
   applyProject(WEAVE_GRAPH);
   sel = (WEAVE_GRAPH.nodes[0] || {}).id || null;
   renderInbox(); render(); showThreadFor(sel);
