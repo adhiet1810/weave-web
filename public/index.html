@@ -444,6 +444,27 @@
   .projacts{display:inline-flex;gap:6px;margin-left:10px}
   .pjbtn{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.2px;color:var(--body,#444);background:var(--canvas,#fff);border:1px solid var(--hairline,#ddd);border-radius:5px;padding:3px 7px;cursor:pointer}
   .pjbtn:hover{border-color:var(--hairline-strong,#999);color:var(--ink,#111)}
+  /* ---- launch splash: icon draws, nodes pop, slogan rises ---- */
+  #weaveSplash{position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;background:var(--page,#f6f5f2);transition:opacity .45s ease}
+  #weaveSplash.ws-out{opacity:0;pointer-events:none}
+  #weaveSplash .ws-inner{display:flex;flex-direction:column;align-items:center}
+  #weaveSplash .ws-icon{display:block}
+  #weaveSplash .ws-word{font-family:'IBM Plex Mono',monospace;font-weight:500;letter-spacing:.34em;font-size:15px;color:var(--ink,#141414);margin:18px 0 0 5px;opacity:0;animation:wsWord .6s ease .55s forwards}
+  #weaveSplash .ws-slogan{font-family:'Inter',system-ui,sans-serif;font-size:13.5px;letter-spacing:-.1px;color:var(--body,#555);margin-top:9px;opacity:0;animation:wsSlog .6s ease .8s forwards}
+  #weaveSplash .ws-ln{stroke-dasharray:480;stroke-dashoffset:480;animation:wsDraw .55s ease forwards}
+  #weaveSplash .ws-ln:nth-child(1){animation-delay:.05s}
+  #weaveSplash .ws-ln:nth-child(2){animation-delay:.20s}
+  #weaveSplash .ws-ln:nth-child(3){animation-delay:.35s}
+  #weaveSplash .ws-ln:nth-child(4){animation-delay:.50s}
+  #weaveSplash .ws-dots{opacity:0;animation:wsDots .5s ease .72s forwards}
+  @keyframes wsDraw{to{stroke-dashoffset:0}}
+  @keyframes wsDots{from{opacity:0}to{opacity:1}}
+  @keyframes wsWord{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes wsSlog{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @media (prefers-reduced-motion: reduce){
+    #weaveSplash .ws-ln{animation:none;stroke-dashoffset:0}
+    #weaveSplash .ws-dots,#weaveSplash .ws-word,#weaveSplash .ws-slogan{animation:none;opacity:1;transform:none}
+  }
   #projMenu{position:fixed;z-index:9600;min-width:224px;max-width:300px;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:11px;box-shadow:0 16px 44px rgba(0,0,0,.24);padding:6px;display:none;font-family:'Inter',system-ui,sans-serif}
   #projMenu.on{display:block}
   #projMenu .pm-h{font-family:'IBM Plex Mono';font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute,#999);padding:6px 9px 5px}
@@ -2479,8 +2500,42 @@ function wireTutorial(){
   if(!seen) setTimeout(startTour, 900);
 }
 
+/* ============ launch splash — icon + slogan on open ============ */
+function showSplash(){
+  try{
+    if(document.getElementById('weaveSplash')) return;
+    const s = document.createElement('div'); s.id = 'weaveSplash';
+    s.innerHTML =
+      '<div class="ws-inner">' +
+        '<svg class="ws-icon" viewBox="0 0 1024 1024" width="106" height="106" aria-hidden="true">' +
+          '<g fill="none" stroke-linecap="round" stroke-width="60">' +
+            '<line class="ws-ln" x1="240" y1="300" x2="410" y2="720" stroke="#003c33"/>' +
+            '<line class="ws-ln" x1="410" y1="720" x2="512" y2="470" stroke="#003c33"/>' +
+            '<line class="ws-ln" x1="512" y1="470" x2="614" y2="720" stroke="#ab570a"/>' +
+            '<line class="ws-ln" x1="614" y1="720" x2="784" y2="300" stroke="#ab570a"/>' +
+          '</g>' +
+          '<g class="ws-dots">' +
+            '<circle cx="240" cy="300" r="44" fill="#003c33"/>' +
+            '<circle cx="410" cy="720" r="44" fill="#003c33"/>' +
+            '<circle cx="614" cy="720" r="44" fill="#ab570a"/>' +
+            '<circle cx="784" cy="300" r="44" fill="#ab570a"/>' +
+            '<path d="M512 426 A44 44 0 0 0 512 514 Z" fill="#003c33"/>' +
+            '<path d="M512 426 A44 44 0 0 1 512 514 Z" fill="#ab570a"/>' +
+          '</g>' +
+        '</svg>' +
+        '<div class="ws-word">WEAVE</div>' +
+        '<div class="ws-slogan">Untangle Problems, Spark Ideas</div>' +
+      '</div>';
+    document.body.appendChild(s);
+    const done = () => { s.classList.add('ws-out'); setTimeout(() => { if(s.parentNode) s.remove(); }, 480); };
+    s._t = setTimeout(done, 1900);
+    s.addEventListener('click', () => { clearTimeout(s._t); done(); });
+  }catch(e){}
+}
+
 /* ============ boot ============ */
 async function boot(){
+  showSplash();
   try{
     WEAVE_GRAPH = await WV.graph();
   }catch(err){
