@@ -1,8 +1,9 @@
-// POST /api/mutate — apply one write op to the D1 vault, return the fresh graph.
+// POST /api/mutate — apply one write op to the active project's vault, return the fresh graph.
+// The active project comes from the X-Weave-Project header (see activeVault).
 // Body: { op, ... }.  Ops: upsertNode, deleteNode, addEdge, deleteEdge,
-//                          addFacet, addCapture, deleteCapture, promote.
+//                          addFacet, addCapture, deleteCapture, promote, editNode, ...
 import { derive } from "../_lib/derive.js";
-import { requireAuth, VAULT, EXAMPLE } from "../_lib/auth.js";
+import { requireAuth, EXAMPLE, activeVault } from "../_lib/auth.js";
 
 const now = () => new Date().toISOString();
 
@@ -14,7 +15,7 @@ const COLS = {
   captures: "id,text,created",
 };
 
-async function apply(db, op, a) {
+async function apply(db, op, a, vault) {
   switch (op) {
     case "upsertNode": {
       const n = a.node;
@@ -27,7 +28,7 @@ async function apply(db, op, a) {
            distillate_confidence=excluded.distillate_confidence,distillate_updated=excluded.distillate_updated,
            body=excluded.body,updated=excluded.updated`
       ).bind(
-        VAULT, n.id, n.kind ?? null, n.state ?? "freeform", n.region ?? null, n.lean ?? "inherit",
+        vault, n.id, n.kind ?? null, n.state ?? "freeform", n.region ?? null, n.lean ?? "inherit",
         n.cluster ?? null, n.title ?? null,
         n.distillate?.text ?? null, n.distillate?.confidence ?? null, n.distillate ? now() : null,
         n.body ?? "", n.created ?? now(), now()
@@ -37,46 +38,46 @@ async function apply(db, op, a) {
           await db.prepare(
             `INSERT INTO facets (vault_id,node_id,name,semantic,distillate,confidence) VALUES (?,?,?,?,?,?)
              ON CONFLICT(vault_id,node_id,name) DO UPDATE SET semantic=excluded.semantic,distillate=excluded.distillate,confidence=excluded.confidence`
-          ).bind(VAULT, n.id, f.name, f.semantic ?? null, f.distillate ?? null, f.confidence ?? null).run();
+          ).bind(vault, n.id, f.name, f.semantic ?? null, f.distillate ?? null, f.confidence ?? null).run();
         }
       }
       return;
     }
     case "deleteNode":
       await db.batch([
-        db.prepare("DELETE FROM nodes WHERE vault_id=? AND id=?").bind(VAULT, a.id),
-        db.prepare("DELETE FROM facets WHERE vault_id=? AND node_id=?").bind(VAULT, a.id),
-        db.prepare("DELETE FROM edges WHERE vault_id=? AND (src=? OR to_id=?)").bind(VAULT, a.id, a.id),
+        db.prepare("DELETE FROM nodes WHERE vault_id=? AND id=?").bind(vault, a.id),
+        db.prepare("DELETE FROM facets WHERE vault_id=? AND node_id=?").bind(vault, a.id),
+        db.prepare("DELETE FROM edges WHERE vault_id=? AND (src=? OR to_id=?)").bind(vault, a.id, a.id),
       ]);
       return;
     case "addEdge":
       await db.prepare(
         "INSERT INTO edges (vault_id,src,from_facet,to_id,to_facet,rel,note) VALUES (?,?,?,?,?,?,?)"
-      ).bind(VAULT, a.src, a.from ?? null, a.to_id, a.to_facet ?? null, a.rel, a.note ?? null).run();
+      ).bind(vault, a.src, a.from ?? null, a.to_id, a.to_facet ?? null, a.rel, a.note ?? null).run();
       return;
     case "deleteEdge":
-      await db.prepare("DELETE FROM edges WHERE vault_id=? AND id=?").bind(VAULT, a.id).run();
+      await db.prepare("DELETE FROM edges WHERE vault_id=? AND id=?").bind(vault, a.id).run();
       return;
     case "addFacet":
       await db.prepare(
         `INSERT INTO facets (vault_id,node_id,name,semantic,distillate,confidence) VALUES (?,?,?,?,?,?)
          ON CONFLICT(vault_id,node_id,name) DO UPDATE SET semantic=excluded.semantic`
-      ).bind(VAULT, a.node_id, a.name, a.semantic ?? "informational", a.distillate ?? null, a.confidence ?? null).run();
+      ).bind(vault, a.node_id, a.name, a.semantic ?? "informational", a.distillate ?? null, a.confidence ?? null).run();
       return;
     case "addCapture":
       await db.prepare("INSERT OR REPLACE INTO captures (vault_id,id,text,created) VALUES (?,?,?,?)")
-        .bind(VAULT, a.id, a.text, now()).run();
+        .bind(vault, a.id, a.text, now()).run();
       return;
     case "deleteCapture":
-      await db.prepare("DELETE FROM captures WHERE vault_id=? AND id=?").bind(VAULT, a.id).run();
+      await db.prepare("DELETE FROM captures WHERE vault_id=? AND id=?").bind(vault, a.id).run();
       return;
     case "promote": // capture -> node
-      await db.prepare("DELETE FROM captures WHERE vault_id=? AND id=?").bind(VAULT, a.captureId).run();
-      await apply(db, "upsertNode", { node: a.node });
+      await db.prepare("DELETE FROM captures WHERE vault_id=? AND id=?").bind(vault, a.captureId).run();
+      await apply(db, "upsertNode", { node: a.node }, vault);
       return;
     case "renameNode":
       await db.prepare("UPDATE nodes SET title=?, updated=? WHERE vault_id=? AND id=?")
-        .bind(a.title ?? null, now(), VAULT, a.id).run();
+        .bind(a.title ?? null, now(), vault, a.id).run();
       return;
     case "editNode": // full-field edit (leaves lean/cluster/created untouched)
       await db.prepare(
@@ -85,40 +86,40 @@ async function apply(db, op, a) {
       ).bind(
         a.title ?? null, a.kind ?? null, a.region ?? null, a.state ?? "freeform",
         a.distillate ?? null, a.confidence ?? null, (a.distillate ? now() : null),
-        a.body ?? null, now(), VAULT, a.id
+        a.body ?? null, now(), vault, a.id
       ).run();
       return;
     case "changeKind":
       await db.prepare("UPDATE nodes SET kind=?, region=?, updated=? WHERE vault_id=? AND id=?")
-        .bind(a.kind, a.region ?? null, now(), VAULT, a.id).run();
+        .bind(a.kind, a.region ?? null, now(), vault, a.id).run();
       return;
     case "renameProject":
       await db.prepare(
         `INSERT INTO projects (vault_id,name,created) VALUES (?,?,?)
          ON CONFLICT(vault_id) DO UPDATE SET name=excluded.name`
-      ).bind(VAULT, a.name || "Untitled", now()).run();
+      ).bind(vault, a.name || "Untitled", now()).run();
       return;
-    case "clearVault": // "New blank" — empty the working project
+    case "clearVault": // empty the active project
       await db.batch([
-        db.prepare("DELETE FROM nodes WHERE vault_id=?").bind(VAULT),
-        db.prepare("DELETE FROM facets WHERE vault_id=?").bind(VAULT),
-        db.prepare("DELETE FROM edges WHERE vault_id=?").bind(VAULT),
-        db.prepare("DELETE FROM captures WHERE vault_id=?").bind(VAULT),
+        db.prepare("DELETE FROM nodes WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM facets WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM edges WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM captures WHERE vault_id=?").bind(vault),
       ]);
-      if (a.name) await apply(db, "renameProject", { name: a.name });
+      if (a.name) await apply(db, "renameProject", { name: a.name }, vault);
       return;
-    case "loadExample": // clone the example template into the working project
+    case "loadExample": // clone the example template into the active project
       await db.batch([
-        db.prepare("DELETE FROM nodes WHERE vault_id=?").bind(VAULT),
-        db.prepare("DELETE FROM facets WHERE vault_id=?").bind(VAULT),
-        db.prepare("DELETE FROM edges WHERE vault_id=?").bind(VAULT),
-        db.prepare("DELETE FROM captures WHERE vault_id=?").bind(VAULT),
-        db.prepare("INSERT INTO nodes (vault_id," + COLS.nodes + ") SELECT ?," + COLS.nodes + " FROM nodes WHERE vault_id=?").bind(VAULT, EXAMPLE),
-        db.prepare("INSERT INTO facets (vault_id," + COLS.facets + ") SELECT ?," + COLS.facets + " FROM facets WHERE vault_id=?").bind(VAULT, EXAMPLE),
-        db.prepare("INSERT INTO edges (vault_id," + COLS.edges + ") SELECT ?," + COLS.edges + " FROM edges WHERE vault_id=?").bind(VAULT, EXAMPLE),
-        db.prepare("INSERT INTO captures (vault_id," + COLS.captures + ") SELECT ?," + COLS.captures + " FROM captures WHERE vault_id=?").bind(VAULT, EXAMPLE),
+        db.prepare("DELETE FROM nodes WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM facets WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM edges WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM captures WHERE vault_id=?").bind(vault),
+        db.prepare("INSERT INTO nodes (vault_id," + COLS.nodes + ") SELECT ?," + COLS.nodes + " FROM nodes WHERE vault_id=?").bind(vault, EXAMPLE),
+        db.prepare("INSERT INTO facets (vault_id," + COLS.facets + ") SELECT ?," + COLS.facets + " FROM facets WHERE vault_id=?").bind(vault, EXAMPLE),
+        db.prepare("INSERT INTO edges (vault_id," + COLS.edges + ") SELECT ?," + COLS.edges + " FROM edges WHERE vault_id=?").bind(vault, EXAMPLE),
+        db.prepare("INSERT INTO captures (vault_id," + COLS.captures + ") SELECT ?," + COLS.captures + " FROM captures WHERE vault_id=?").bind(vault, EXAMPLE),
       ]);
-      await apply(db, "renameProject", { name: a.name || "Cut my food spending (example)" });
+      await apply(db, "renameProject", { name: a.name || "Cut my food spending (example)" }, vault);
       return;
     default:
       throw new Error("unknown op: " + op);
@@ -129,21 +130,22 @@ export async function onRequestPost({ env, request }) {
   const auth = requireAuth(request, env);
   if (auth) return auth;
   const db = env.DB;
+  const vault = activeVault(request);
   let body;
   try { body = await request.json(); } catch { return Response.json({ error: "bad json" }, { status: 400 }); }
   try {
-    await apply(db, body.op, body);
+    await apply(db, body.op, body, vault);
   } catch (e) {
     return Response.json({ error: String(e.message || e) }, { status: 400 });
   }
   const [nodes, facets, edges, captures, proj] = await Promise.all([
-    db.prepare("SELECT * FROM nodes WHERE vault_id=?").bind(VAULT).all(),
-    db.prepare("SELECT * FROM facets WHERE vault_id=?").bind(VAULT).all(),
-    db.prepare("SELECT * FROM edges WHERE vault_id=?").bind(VAULT).all(),
-    db.prepare("SELECT * FROM captures WHERE vault_id=?").bind(VAULT).all(),
-    db.prepare("SELECT name FROM projects WHERE vault_id=?").bind(VAULT).first(),
+    db.prepare("SELECT * FROM nodes WHERE vault_id=?").bind(vault).all(),
+    db.prepare("SELECT * FROM facets WHERE vault_id=?").bind(vault).all(),
+    db.prepare("SELECT * FROM edges WHERE vault_id=?").bind(vault).all(),
+    db.prepare("SELECT * FROM captures WHERE vault_id=?").bind(vault).all(),
+    db.prepare("SELECT name FROM projects WHERE vault_id=?").bind(vault).first(),
   ]);
   const graph = derive(nodes.results, facets.results, edges.results, captures.results);
-  graph.project = { name: proj?.name || "Untitled" };
+  graph.project = { id: vault, name: proj?.name || "Untitled" };
   return Response.json(graph);
 }

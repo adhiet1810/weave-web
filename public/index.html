@@ -444,6 +444,22 @@
   .projacts{display:inline-flex;gap:6px;margin-left:10px}
   .pjbtn{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.2px;color:var(--body,#444);background:var(--canvas,#fff);border:1px solid var(--hairline,#ddd);border-radius:5px;padding:3px 7px;cursor:pointer}
   .pjbtn:hover{border-color:var(--hairline-strong,#999);color:var(--ink,#111)}
+  #projMenu{position:fixed;z-index:9600;min-width:224px;max-width:300px;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:11px;box-shadow:0 16px 44px rgba(0,0,0,.24);padding:6px;display:none;font-family:'Inter',system-ui,sans-serif}
+  #projMenu.on{display:block}
+  #projMenu .pm-h{font-family:'IBM Plex Mono';font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute,#999);padding:6px 9px 5px}
+  #projMenu .pm-list{max-height:44vh;overflow-y:auto}
+  #projMenu .pm-row{display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--ink,#111)}
+  #projMenu .pm-row:hover{background:var(--canvas,#f2f2f2)}
+  #projMenu .pm-row.active{cursor:default}
+  #projMenu .pm-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #projMenu .pm-name em{font-style:normal;font-family:'IBM Plex Mono';font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--create,#ab570a)}
+  #projMenu .pm-del{flex:0 0 auto;border:none;background:transparent;color:var(--mute,#999);font-size:12px;cursor:pointer;padding:2px 5px;border-radius:5px;opacity:0}
+  #projMenu .pm-row:hover .pm-del{opacity:1}
+  #projMenu .pm-del:hover{color:var(--k-gap,#c00);background:var(--canvas,#eee)}
+  #projMenu .pm-empty{padding:10px 9px;color:var(--mute,#999);font-size:12px}
+  #projMenu .pm-foot{display:flex;gap:6px;border-top:1px solid var(--hairline,#eee);margin-top:5px;padding-top:6px}
+  #projMenu .pm-act{flex:1;font-family:'IBM Plex Mono';font-size:10px;border:1px solid var(--hairline,#ddd);border-radius:6px;background:var(--canvas,#fafafa);color:var(--body,#444);padding:7px 6px;cursor:pointer}
+  #projMenu .pm-act:hover{border-color:var(--create,#ab570a);color:var(--create,#ab570a)}
 
   /* simple mode — hide advanced chrome for first-time users */
   body.mode-simple #aibar{display:none}
@@ -568,7 +584,7 @@
   <div class="titlebar">
     <div class="lights"><i></i><i></i><i></i></div>
     <div class="app-id">WE<b>A</b>VE</div>
-    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename">Untitled</span><span class="projacts"><button id="btnExport" class="pjbtn" title="Export this project as a Markdown file">⬇ Export</button><button id="btnLoadExample" class="pjbtn" title="Replace this project with the example graph">⟳ Load example</button><button id="btnNewProject" class="pjbtn" title="Start a new blank project">＋ New</button></span></div>
+    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename this project">Untitled</span><span class="projacts"><button id="btnProjects" class="pjbtn" title="Open, switch or delete projects">☰ Projects ▾</button><button id="btnExport" class="pjbtn" title="Export this project as a Markdown file">⬇ Export</button><button id="btnLoadExample" class="pjbtn" title="Create a new project seeded from the example graph">⟳ Example</button><button id="btnNewProject" class="pjbtn" title="Create a new blank project">＋ New</button></span></div>
   </div>
 
   <div class="toolbar">
@@ -739,11 +755,15 @@ let WEAVE_INBOX = [];
 /* ============ API layer — Cloudflare Pages Functions + D1 ============ */
 const WV = {
   token: (function(){ try { return localStorage.getItem('weave_token') || ''; } catch(e){ return ''; } })(),
-  headers(){ const x = {'Content-Type':'application/json'}; if(this.token) x['Authorization']='Bearer '+this.token; return x; },
+  project: (function(){ try { return localStorage.getItem('weave_project') || ''; } catch(e){ return ''; } })(),
+  headers(){ const x = {'Content-Type':'application/json'}; if(this.token) x['Authorization']='Bearer '+this.token; if(this.project) x['X-Weave-Project']=this.project; return x; },
   setToken(t){ this.token = t || ''; try { if(t) localStorage.setItem('weave_token', t); else localStorage.removeItem('weave_token'); } catch(e){} },
+  setProject(id){ this.project = id || ''; try { if(id) localStorage.setItem('weave_project', id); else localStorage.removeItem('weave_project'); } catch(e){} },
   async graph(){ const r = await fetch('/api/graph', {headers:this.headers(), cache:'no-store'}); if(r.status===401) throw {code:401}; if(!r.ok) throw new Error('graph '+r.status); return r.json(); },
   async mutate(op, args){ const r = await fetch('/api/mutate', {method:'POST', headers:this.headers(), body:JSON.stringify(Object.assign({op}, args||{}))}); if(!r.ok){ const e = await r.json().catch(()=>({})); flash('save failed: '+(e.error||r.status)); throw new Error('mutate '+r.status); } return r.json(); },
   async ai(body){ const r = await fetch('/api/ai', {method:'POST', headers:this.headers(), body:JSON.stringify(body)}); if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.error || ('ai '+r.status)); } return r.json(); },
+  async projects(){ const r = await fetch('/api/projects', {headers:this.headers(), cache:'no-store'}); if(r.status===401) throw {code:401}; if(!r.ok) throw new Error('projects '+r.status); return r.json(); },
+  async projectOp(op, args){ const r = await fetch('/api/projects', {method:'POST', headers:this.headers(), body:JSON.stringify(Object.assign({op}, args||{}))}); if(!r.ok){ const e = await r.json().catch(()=>({})); flash('project failed: '+(e.error||r.status)); throw new Error('projectOp '+r.status); } return r.json(); },
 };
 function flash(msg){
   let el = document.getElementById('wv-flash');
@@ -1887,17 +1907,63 @@ function exportMarkdown(){
   flash('Exported ' + base + '.md');
 }
 async function doLoadExample(){
-  if(!confirm('Load the example graph? This replaces the current project.')) return;
-  flash('Loading example…');
-  try{ await WV.mutate('loadExample', {}); await reload(); flash('Example loaded.'); }
-  catch(e){ flash('load failed: ' + e.message); }
+  flash('Adding example project…');
+  try{ const r = await WV.projectOp('create', { name:'Cut my food spending (example)', from:'example' }); WV.setProject(r.id); await reload(); flash('Example project opened.'); }
+  catch(e){ flash('failed: ' + e.message); }
 }
 async function doNewProject(){
-  if(!confirm('Start a new blank project? This clears the current one.')) return;
-  const name = prompt('Name your project:', 'Untitled'); if(name === null) return;
-  flash('Starting fresh…');
-  try{ await WV.mutate('clearVault', { name: name || 'Untitled' }); await reload(); }
+  const name = prompt('Name the new project:', 'Untitled'); if(name === null) return;
+  flash('Creating project…');
+  try{ const r = await WV.projectOp('create', { name: name || 'Untitled', from:'blank' }); WV.setProject(r.id); await reload(); flash('New project created.'); }
   catch(e){ flash('failed: ' + e.message); }
+}
+/* ---- projects menu: switch / create / delete (live multi-project) ---- */
+function closeProjectMenu(){ const m = document.getElementById('projMenu'); if(m) m.classList.remove('on'); }
+async function openProject(id){
+  if(id === (WV.project || 'default')){ closeProjectMenu(); return; }
+  WV.setProject(id === 'default' ? '' : id); closeProjectMenu(); flash('Opening…');
+  try{ await reload(); }catch(e){ flash('open failed: ' + (e.message||e)); }
+}
+async function deleteProjectFromMenu(id, name){
+  if(!confirm('Delete “' + (name || id) + '”? This cannot be undone.')) return;
+  try{
+    await WV.projectOp('delete', { id });
+    if(id === (WV.project || 'default')){ WV.setProject(''); await reload(); }
+    openProjectMenu();
+  }catch(e){ flash('delete failed: ' + (e.message||e)); }
+}
+async function openProjectMenu(){
+  let m = document.getElementById('projMenu');
+  if(!m){
+    m = document.createElement('div'); m.id = 'projMenu'; document.body.appendChild(m);
+    document.addEventListener('click', ev => { if(!ev.target.closest('#projMenu') && !ev.target.closest('#btnProjects')) closeProjectMenu(); });
+    window.addEventListener('resize', closeProjectMenu);
+  }
+  m.innerHTML = '<div class="pm-h">Projects</div><div class="pm-list">loading…</div><div class="pm-foot"><button class="pm-act" id="pmNew">＋ New blank</button><button class="pm-act" id="pmEx">⟳ From example</button></div>';
+  const btn = document.getElementById('btnProjects');
+  if(btn){ const r = btn.getBoundingClientRect(); m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 250)) + 'px'; m.style.top = (r.bottom + 6) + 'px'; }
+  m.classList.add('on');
+  m.querySelector('#pmNew').addEventListener('click', () => { closeProjectMenu(); doNewProject(); });
+  m.querySelector('#pmEx').addEventListener('click', () => { closeProjectMenu(); doLoadExample(); });
+  let list = [];
+  try{ const res = await WV.projects(); list = res.projects || []; }
+  catch(e){ const el = m.querySelector('.pm-list'); if(el) el.textContent = 'failed to load'; return; }
+  const cur = WV.project || 'default';
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const rows = list.map(p => {
+    const active = (p.id === cur);
+    return '<div class="pm-row' + (active ? ' active' : '') + '" data-id="' + esc(p.id) + '">' +
+      '<span class="pm-name">' + esc(p.name || p.id) + (active ? ' <em>· open</em>' : '') + '</span>' +
+      (active ? '' : '<button class="pm-del" data-del="' + esc(p.id) + '" title="Delete project">✕</button>') +
+      '</div>';
+  }).join('') || '<div class="pm-empty">No projects yet.</div>';
+  const listEl = m.querySelector('.pm-list'); if(!listEl) return; listEl.innerHTML = rows;
+  listEl.querySelectorAll('.pm-row').forEach(row => {
+    row.addEventListener('click', ev => { if(ev.target.closest('.pm-del')) return; openProject(row.dataset.id); });
+  });
+  listEl.querySelectorAll('.pm-del').forEach(db => {
+    db.addEventListener('click', ev => { ev.stopPropagation(); const id = db.dataset.del; const nm = (list.find(x => x.id === id) || {}).name; deleteProjectFromMenu(id, nm); });
+  });
 }
 async function doRename(){
   const cur = (document.getElementById('projName') || {}).textContent || 'Untitled';
@@ -2007,6 +2073,7 @@ function wireProjectBar(){
   const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', doLoadExample);
   const ex = document.getElementById('btnExport'); if(ex) ex.addEventListener('click', exportMarkdown);
   const np = document.getElementById('btnNewProject'); if(np) np.addEventListener('click', doNewProject);
+  const pj = document.getElementById('btnProjects'); if(pj) pj.addEventListener('click', ev => { ev.stopPropagation(); const m = document.getElementById('projMenu'); if(m && m.classList.contains('on')) closeProjectMenu(); else openProjectMenu(); });
 }
 
 /* ============ mobile: drawer, bottom sheet, touch, zoom ============ */

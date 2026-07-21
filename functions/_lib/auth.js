@@ -8,5 +8,12 @@ export function requireAuth(request, env) {
   return null;
 }
 
-export const VAULT = "default";   // the working project
+export const VAULT = "default";   // the primary working project (default active)
 export const EXAMPLE = "example";  // read-only template cloned by "Load example"
+
+// Resolve the active project (vault) from the request. The client selects it via
+// the X-Weave-Project header; falls back to the primary working vault.
+export function activeVault(request) {
+  const raw = (request.headers.get("X-Weave-Project") || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 64);
+  return raw || VAULT;
+}
