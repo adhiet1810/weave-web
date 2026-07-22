@@ -575,6 +575,19 @@
   #editModal .em-actions button{font-size:12px;border-radius:7px;padding:8px 15px;cursor:pointer;font-family:'Inter',sans-serif}
   #editModal .em-cancel{background:transparent;border:1px solid var(--hairline,#ddd);color:var(--body,#444)}
   #editModal .em-save{background:var(--ink,#141414);color:var(--page,#fff);border:none;font-weight:600}
+  #editModal .em-suggest{float:right;font-family:'IBM Plex Mono';font-size:9.5px;letter-spacing:.3px;color:var(--create,#ab570a);background:var(--create-wash,#ffefcf);border:1px solid var(--create-e4,rgba(171,87,10,.35));border-radius:5px;padding:3px 8px;cursor:pointer;text-transform:none}
+  #editModal .em-suggest:hover{border-color:var(--create,#ab570a)}
+  #editModal .em-kindtip{display:none;margin-top:9px}
+  #editModal .em-kindtip .ek-load,#editModal .em-kindtip .ek-err{font-size:11px;color:var(--mute,#999);font-family:'Inter',sans-serif}
+  #editModal .em-kindtip .ek-err{color:var(--k-gap,#c00)}
+  #editModal .ek-cand{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:9px;text-align:left;background:var(--canvas,#fafafa);border:1px solid var(--hairline,#ddd);border-radius:8px;padding:8px 10px;cursor:pointer;font-family:'Inter',sans-serif;width:100%;margin-bottom:6px}
+  #editModal .ek-cand:hover{border-color:var(--hairline-strong,#999)}
+  #editModal .ek-cand.chosen{border-color:var(--ink,#111)}
+  #editModal .ek-cand .ek-dot{width:13px;height:13px;border-radius:50%}
+  #editModal .ek-cand .ek-name{font-size:12px;font-weight:600;color:var(--ink,#111);white-space:nowrap}
+  #editModal .ek-cand.top .ek-name{color:var(--create,#ab570a)}
+  #editModal .ek-cand .ek-reason{font-size:11px;color:var(--body,#555);line-height:1.35}
+  #editModal .ek-q{font-size:11.5px;color:var(--ink,#111);background:var(--create-wash,#ffefcf);border-radius:7px;padding:7px 9px;line-height:1.4}
 
   #ctxMenu{position:fixed;z-index:9500;min-width:186px;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:10px;padding:5px;box-shadow:0 14px 38px rgba(0,0,0,.24);font-family:'Inter',system-ui,sans-serif;display:none}
   #ctxMenu.on{display:block}
@@ -2276,7 +2289,7 @@ function showCtx(id, x, y){
   const row = document.createElement('div'); row.className = 'ckrow';
   KIND_LIST.forEach(k => {
     const d = document.createElement('span'); d.className = 'ckdot' + (n.kind === k ? ' cur' : '');
-    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = KIND_HINT[k] || k;
+    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = KIND_HINT[k] || k; d.dataset.kind = k;
     d.addEventListener('click', ev => { ev.stopPropagation(); hideCtx(); ctxChangeKind(id, k); });
     row.appendChild(d);
   });
@@ -2300,7 +2313,7 @@ function editEls(){
       '<div class="em-card">' +
         '<h3 id="emTitleHead">Edit node</h3><div class="em-sub" id="emSub"></div>' +
         '<label>Title</label><input type="text" id="emTitle">' +
-        '<label>Kind</label><div class="em-kinds" id="emKinds"></div>' +
+        '<label>Kind <button type="button" id="emSuggest" class="em-suggest" title="Let the AI read the title + connections and suggest a kind">✨ Suggest</button></label><div class="em-kinds" id="emKinds"></div><div id="emKindTip" class="em-kindtip"></div>' +
         '<label>State</label><select id="emState"><option value="freeform">freeform — loose, not yet distilled</option><option value="distilled">distilled — has a settled distillate</option></select>' +
         '<label>Distillate — the one-line settled claim</label><textarea id="emDist" rows="2"></textarea>' +
         '<label>Confidence</label><div class="em-conf"><input type="range" id="emConf" min="0" max="100" step="1"><span class="emcv" id="emConfV">0%</span></div>' +
@@ -2311,6 +2324,7 @@ function editEls(){
     m.addEventListener('click', ev => { if(ev.target === m) m.classList.remove('on'); });
     m.querySelector('#emCancel').addEventListener('click', () => m.classList.remove('on'));
     m.querySelector('#emSave').addEventListener('click', saveEdit);
+    m.querySelector('#emSuggest').addEventListener('click', suggestKind);
     m.querySelector('#emConf').addEventListener('input', e => { m.querySelector('#emConfV').textContent = e.target.value + '%'; });
     document.addEventListener('keydown', e => { if(e.key === 'Escape' && m.classList.contains('on')) m.classList.remove('on'); });
   }
@@ -2325,8 +2339,8 @@ function openEdit(id){
   const kwrap = m.querySelector('#emKinds'); kwrap.innerHTML = '';
   KIND_LIST.forEach(k => {
     const d = document.createElement('span'); d.className = 'emk' + (k === _editKind ? ' sel' : '');
-    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = KIND_HINT[k] || k;
-    d.addEventListener('click', () => { _editKind = k; kwrap.querySelectorAll('.emk').forEach(x => x.classList.toggle('sel', x.title === k)); });
+    d.style.background = 'var(--k-' + k + ')'; d.textContent = KIND_LETTER[k]; d.title = KIND_HINT[k] || k; d.dataset.kind = k;
+    d.addEventListener('click', () => { _editKind = k; kwrap.querySelectorAll('.emk').forEach(x => x.classList.toggle('sel', x.dataset.kind === k)); });
     kwrap.appendChild(d);
   });
   const state = nd.state || (n.fresh ? 'freeform' : 'distilled');
@@ -2336,6 +2350,7 @@ function openEdit(id){
   const conf = nd.confidence != null ? Math.round(nd.confidence * 100) : ((THREADS[id] && THREADS[id].conf) || 0);
   m.querySelector('#emConf').value = conf; m.querySelector('#emConfV').textContent = conf + '%';
   m.querySelector('#emBody').value = (nd.body != null ? nd.body : '') || '';
+  const _kt = m.querySelector('#emKindTip'); if(_kt){ _kt.style.display = 'none'; _kt.innerHTML = ''; }
   m.classList.add('on');
   setTimeout(() => m.querySelector('#emTitle').focus(), 30);
 }
@@ -2355,6 +2370,54 @@ function saveEdit(){
   m.classList.remove('on');
   render(); showThreadFor(id);
   WV.mutate('editNode', { id, title, kind, region, state, distillate: dist || null, confidence: conf, body }).catch(()=>{});
+}
+
+/* ---- suggest kind: AI reads the title + connected diagram and ranks the likely kinds ---- */
+function gatherKindContext(id, title, body){
+  const n = NODES[id]; if(!n) return null;
+  const neighbors = [];
+  (typeof STRUCT !== 'undefined' ? STRUCT : []).forEach(e => {
+    if(e.a !== id && e.b !== id) return;
+    const o = NODES[e.a === id ? e.b : e.a]; if(!o) return;
+    neighbors.push({ rel: e.l, dir: e.a === id ? 'out' : 'in', kind: o.kind, title: o.t });
+  });
+  return { node: { title: title || n.t, current_kind: n.kind, body: body || '' }, neighbors };
+}
+async function suggestKind(ev){
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  const id = _editId; if(!id || !NODES[id]) return;
+  const m = document.getElementById('editModal'); if(!m) return;
+  const title = (m.querySelector('#emTitle').value || '').trim() || NODES[id].t;
+  const body = m.querySelector('#emBody').value || '';
+  const tip = document.getElementById('emKindTip');
+  if(tip){ tip.style.display = 'block'; tip.innerHTML = '<span class="ek-load">✨ reading the title & connections…</span>'; }
+  try{
+    const out = await WV.ai({ action: 'suggest_kind', context: gatherKindContext(id, title, body) });
+    renderKindSuggestion(out.candidates, out.question);
+  }catch(e){
+    if(tip) tip.innerHTML = '<span class="ek-err">suggest failed: ' + (e.message || e) + ' — is the AI key set on the server?</span>';
+  }
+}
+function renderKindSuggestion(cands, question){
+  const tip = document.getElementById('emKindTip'); if(!tip) return;
+  const NAME = { problem:'Problem', hypothesis:'Hypothesis', solution:'Solution', seed:'Seed', synthesis:'Synthesis', gap:'Gap' };
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let h = '';
+  (cands || []).slice(0, 2).forEach((c, i) => {
+    h += '<button type="button" class="ek-cand' + (i === 0 ? ' top' : '') + '" data-kind="' + esc(c.kind) + '">' +
+      '<span class="ek-dot" style="background:var(--k-' + esc(c.kind) + ')"></span>' +
+      '<span class="ek-name">' + (NAME[c.kind] || esc(c.kind)) + (i === 0 ? ' · best' : '') + '</span>' +
+      '<span class="ek-reason">' + esc(c.reason || '') + '</span></button>';
+  });
+  if(question) h += '<div class="ek-q">◆ ' + esc(question) + '</div>';
+  if(!h) h = '<span class="ek-err">no suggestion</span>';
+  tip.innerHTML = h; tip.style.display = 'block';
+  tip.querySelectorAll('.ek-cand').forEach(btn => btn.addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const k = btn.dataset.kind; _editKind = k;
+    const kw = document.getElementById('emKinds'); if(kw) kw.querySelectorAll('.emk').forEach(x => x.classList.toggle('sel', x.dataset.kind === k));
+    tip.querySelectorAll('.ek-cand').forEach(x => x.classList.toggle('chosen', x === btn));
+  }));
 }
 
 function wireContextMenu(){

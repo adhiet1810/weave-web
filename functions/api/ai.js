@@ -90,6 +90,47 @@ const DISTILL_SCHEMA = {
   },
 };
 
+// ---- suggest_kind: infer a node's kind from its title + graph role ----
+const SUGGEST_KIND_SYSTEM = `You are Weave's node classifier. Weave has six node kinds, defined by their ROLE
+in an argument, not their wording:
+- problem: a question or goal to resolve (where the solve side starts)
+- hypothesis: a claim that might be true, or an approach you are asserting — something attackable
+- solution: the concrete method that realises or answers a hypothesis
+- seed: a loose idea with no problem attached yet (where the create side starts)
+- synthesis: several ideas fused into one new whole
+- gap: a blocker — an external wall that blocks a hypothesis or solution
+A node's kind is decided MORE by its role (its edges) than by its title. You are given the
+node's title, body, current_kind, and its neighbours — each with "rel" and "dir" ("out" =
+this node points to it, "in" = it points to this node).
+Rank the 1-2 most likely kinds, each with a one-line reason grounded in the title AND the
+neighbour structure. If two kinds are genuinely plausible (e.g. a claim that could be a
+hypothesis, or the solution that answers one), include both and pose ONE disambiguating
+question that would settle it. Prefer structure over surface phrasing — never call something
+a solution just because it is an action phrase, or a gap just because it sounds negative. If
+there are no neighbours, say so in the reason and lower confidence. Order candidates best-first.`;
+
+const SUGGEST_KIND_JSON_HINT = `Return ONLY a JSON object with keys:
+"candidates" (array, best first, 1-2 items, each {"kind": one of "problem"|"hypothesis"|"solution"|"seed"|"synthesis"|"gap", "reason": string, "confidence": number 0..1}),
+"question" (a single disambiguating question string, or null if the kind is clear).`;
+
+const SUGGEST_KIND_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["candidates"],
+  properties: {
+    candidates: {
+      type: "array",
+      items: { type: "object", additionalProperties: false, required: ["kind", "reason"],
+        properties: {
+          kind: { type: "string", enum: ["problem", "hypothesis", "solution", "seed", "synthesis", "gap"] },
+          reason: { type: "string" },
+          confidence: { type: ["number", "null"] },
+        } },
+    },
+    question: { type: ["string", "null"] },
+  },
+};
+
 // Pull a JSON object out of a model reply, tolerating ```json fences / stray prose.
 function extractJson(s) {
   if (!s) return null;
@@ -165,6 +206,23 @@ export async function onRequestPost({ env, request }) {
     const proposal = extractJson(content);
     if (!proposal) return Response.json({ error: "model did not return valid JSON", raw: content }, { status: 502 });
     return Response.json({ proposal });
+  }
+
+  if (body.action === "suggest_kind") {
+    const messages = [
+      { role: "system", content: SUGGEST_KIND_SYSTEM + "\n\n" + SUGGEST_KIND_JSON_HINT },
+      { role: "user", content: JSON.stringify(body.context) },
+    ];
+    let res = await callOpenRouter(key, origin, {
+      model, messages,
+      response_format: { type: "json_schema", json_schema: { name: "kind", strict: true, schema: SUGGEST_KIND_SCHEMA } },
+    });
+    if (!res.ok) res = await callOpenRouter(key, origin, { model, messages });
+    if (!res.ok) return Response.json({ error: res.data.error || "openrouter error", detail: res.data }, { status: res.status });
+    const content = res.data.choices?.[0]?.message?.content ?? "";
+    const out = extractJson(content);
+    if (!out || !Array.isArray(out.candidates)) return Response.json({ error: "model did not return valid JSON", raw: content }, { status: 502 });
+    return Response.json(out);
   }
 
   // chat / composer: relay the thread, keep replies short and vector-aware
