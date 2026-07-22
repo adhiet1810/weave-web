@@ -102,16 +102,15 @@ in an argument, not their wording:
 A node's kind is decided MORE by its role (its edges) than by its title. You are given the
 node's title, body, current_kind, and its neighbours — each with "rel" and "dir" ("out" =
 this node points to it, "in" = it points to this node).
-Rank the 1-2 most likely kinds, each with a one-line reason grounded in the title AND the
-neighbour structure. If two kinds are genuinely plausible (e.g. a claim that could be a
-hypothesis, or the solution that answers one), include both and pose ONE disambiguating
-question that would settle it. Prefer structure over surface phrasing — never call something
-a solution just because it is an action phrase, or a gap just because it sounds negative. If
-there are no neighbours, say so in the reason and lower confidence. Order candidates best-first.`;
+Rank the 1-2 most likely kinds. Each reason must be VERY SHORT — a fragment of at most ~8
+words, NOT a sentence (e.g. "asserted claim, attackable" or "method that answers a problem").
+If two kinds are genuinely plausible, include both and pose ONE short disambiguating question
+(max ~14 words). Prefer structure over surface phrasing — never call something a solution just
+because it is an action phrase, or a gap just because it sounds negative. Order candidates best-first.`;
 
 const SUGGEST_KIND_JSON_HINT = `Return ONLY a JSON object with keys:
-"candidates" (array, best first, 1-2 items, each {"kind": one of "problem"|"hypothesis"|"solution"|"seed"|"synthesis"|"gap", "reason": string, "confidence": number 0..1}),
-"question" (a single disambiguating question string, or null if the kind is clear).`;
+"candidates" (array, best first, 1-2 items, each {"kind": one of "problem"|"hypothesis"|"solution"|"seed"|"synthesis"|"gap", "reason": a terse fragment of at most ~8 words, "confidence": number 0..1}),
+"question" (one short disambiguating question, max ~14 words, or null if the kind is clear).`;
 
 const SUGGEST_KIND_SCHEMA = {
   type: "object",
