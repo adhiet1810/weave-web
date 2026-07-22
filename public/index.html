@@ -233,6 +233,8 @@
   .elabel{position:absolute;transform:translate(-50%,-50%);font-family:'IBM Plex Mono';font-size:9px;padding:2px 7px;border-radius:100px;white-space:nowrap;background:var(--canvas);border:1px solid var(--hairline);color:var(--body);z-index:3;pointer-events:none}
   .elabel.s{border-color:var(--solve-e3);color:var(--solve)}
   .elabel.c{border-color:var(--create-e4);color:var(--create)}
+  .elabel.ex{pointer-events:auto;cursor:pointer}
+  .elabel.ex:hover{border-color:var(--ink);color:var(--ink);box-shadow:var(--sh-2)}
   .badge{position:absolute;transform:translate(-50%,-50%);font-family:'IBM Plex Mono';font-size:10px;padding:4px 10px;border-radius:100px;white-space:nowrap;background:var(--canvas);border:1px solid var(--hairline-strong);color:var(--body);z-index:6;cursor:pointer;transition:.15s;box-shadow:var(--sh-2)}
   .badge:hover{border-color:var(--create);color:var(--create)}
   .badge .x{color:var(--create);font-weight:500}
@@ -1009,9 +1011,10 @@ function renderEdges(){
     svg+='<path d="'+arrowPath(A,B,21,29)+'" stroke="'+col+'" stroke-width="1.8" fill="none" stroke-opacity=".5" marker-end="url(#'+mk+')"/>';
     if(e.l){
       const lab=document.createElement('div');
-      lab.className='elabel '+(e.dir==='s'?'s':'c');
+      lab.className='elabel ex '+(e.dir==='s'?'s':'c');
       lab.style.left=((A.x+B.x)/2)+'px'; lab.style.top=((A.y+B.y)/2)+'px';
       lab.textContent=e.l;
+      lab.dataset.a=e.a; lab.dataset.b=e.b; lab.dataset.l=e.l;
       labelsEl.appendChild(lab);
     }
   });
@@ -2428,6 +2431,64 @@ function wireContextMenu(){
   });
 }
 
+/* ---- edit / delete an existing connection (click its relationship label) ---- */
+function edgeDir(rel){ return (rel === 'sparks' || rel === 'combines') ? 'c' : 's'; }
+function findStructIndex(a, b, l){ return STRUCT.findIndex(e => e.a === a && e.b === b && e.l === l); }
+async function deleteConnection(a, b, l){
+  const i = findStructIndex(a, b, l); if(i > -1) STRUCT.splice(i, 1);
+  render(); if(window.__reheat) window.__reheat(0.3);
+  try{ await WV.mutate('deleteEdgeMatch', { src: a, to_id: b, rel: l }); flash('Connection removed.'); }
+  catch(e){ flash('delete failed: ' + (e.message || e)); }
+}
+async function reverseConnection(a, b, l){
+  const i = findStructIndex(a, b, l); if(i > -1) STRUCT.splice(i, 1);
+  STRUCT.push({ a: b, b: a, dir: edgeDir(l), l });
+  render(); if(window.__reheat) window.__reheat(0.3);
+  try{ await WV.mutate('deleteEdgeMatch', { src: a, to_id: b, rel: l });
+       await WV.mutate('addEdge', { src: b, to_id: a, rel: l }); flash('Direction reversed.'); }
+  catch(e){ flash('reverse failed: ' + (e.message || e)); }
+}
+async function retypeConnection(a, b, oldRel, newRel){
+  const i = findStructIndex(a, b, oldRel); if(i > -1) STRUCT.splice(i, 1);
+  STRUCT.push({ a, b, dir: edgeDir(newRel), l: newRel });
+  render(); if(window.__reheat) window.__reheat(0.3);
+  try{ await WV.mutate('deleteEdgeMatch', { src: a, to_id: b, rel: oldRel });
+       await WV.mutate('addEdge', { src: a, to_id: b, rel: newRel }); flash('Type changed to ' + newRel + '.'); }
+  catch(e){ flash('change failed: ' + (e.message || e)); }
+}
+function showEdgeMenu(a, b, l, cx, cy){
+  const na = NODES[a], nb = NODES[b]; if(!na || !nb) return;
+  const m = ctxEls(); m.innerHTML = '';
+  const head = document.createElement('div'); head.className = 'ck-head';
+  head.textContent = (na.t || a) + '  ─' + l + '→  ' + (nb.t || b); m.appendChild(head);
+  const item = (ic, label, fn, danger) => { const d = document.createElement('div'); d.className = 'ci' + (danger ? ' danger' : '');
+    d.innerHTML = '<span class="ic">' + ic + '</span>' + label; d.addEventListener('click', ev => { ev.stopPropagation(); hideCtx(); fn(); }); m.appendChild(d); };
+  item('⇄', 'Reverse direction', () => reverseConnection(a, b, l));
+  const legal = (typeof GRAMMAR !== 'undefined' && GRAMMAR[na.kind + '>' + nb.kind]) || [];
+  const others = legal.filter(r => r !== l);
+  if(others.length){
+    const sep = document.createElement('div'); sep.className = 'sep'; m.appendChild(sep);
+    const kh = document.createElement('div'); kh.className = 'ck-head'; kh.textContent = 'Change type'; m.appendChild(kh);
+    others.forEach(r => item('↳', '→ ' + r, () => retypeConnection(a, b, l, r)));
+  }
+  const sep2 = document.createElement('div'); sep2.className = 'sep'; m.appendChild(sep2);
+  item('🗑', 'Delete connection', () => deleteConnection(a, b, l), true);
+  m.classList.add('on');
+  const mw = m.offsetWidth || 200, mh = m.offsetHeight || 170; let px = cx, py = cy;
+  if(px + mw > window.innerWidth - 8) px = window.innerWidth - mw - 8;
+  if(py + mh > window.innerHeight - 8) py = window.innerHeight - mh - 8;
+  m.style.left = Math.max(8, px) + 'px'; m.style.top = Math.max(8, py) + 'px';
+}
+function wireEdgeEditing(){
+  const labels = document.getElementById('labels'); if(!labels) return;
+  labels.addEventListener('click', ev => {
+    const lab = ev.target.closest('.elabel.ex'); if(!lab) return;
+    ev.stopPropagation(); showEdgeMenu(lab.dataset.a, lab.dataset.b, lab.dataset.l, ev.clientX, ev.clientY);
+  });
+  // a press on a connection label must not start a canvas pan
+  ['mousedown','touchstart'].forEach(evt => labels.addEventListener(evt, ev => { if(ev.target.closest('.elabel.ex')) ev.stopPropagation(); }, { passive: true }));
+}
+
 /* ---- right-click empty canvas → create a node in that area ---- */
 const KIND_NAME = { problem:'Problem', hypothesis:'Hypothesis', solution:'Solution', gap:'Gap / blocker', seed:'Seed', synthesis:'Synthesis' };
 function createFreeNode(kind, x, y){
@@ -2648,6 +2709,7 @@ async function boot(){
   wireTutorial();
   wireContextMenu();
   wireCanvasCreate();
+  wireEdgeEditing();
   wireMobile();
   wireLegendTips();
   applyProject(WEAVE_GRAPH);

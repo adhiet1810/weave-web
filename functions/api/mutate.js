@@ -58,6 +58,10 @@ async function apply(db, op, a, vault) {
     case "deleteEdge":
       await db.prepare("DELETE FROM edges WHERE vault_id=? AND id=?").bind(vault, a.id).run();
       return;
+    case "deleteEdgeMatch": // delete by fields (client has no edge id)
+      await db.prepare("DELETE FROM edges WHERE vault_id=? AND src=? AND to_id=? AND rel=?")
+        .bind(vault, a.src, a.to_id, a.rel).run();
+      return;
     case "addFacet":
       await db.prepare(
         `INSERT INTO facets (vault_id,node_id,name,semantic,distillate,confidence) VALUES (?,?,?,?,?,?)
