@@ -2007,7 +2007,8 @@ const NEXT_MOVES = {
   problem:[{label:'＋ Hypothesis', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'What could be true — what might solve it?  e.g. "Meal-prepping on Sundays would cut it"'}],
   hypothesis:[
     {label:'＋ Solution', kind:'solution', rel:'answers', dir:'out', prompt:'How, exactly, would you do it?  e.g. "Batch-cook 5 lunches every Sunday 6pm"'},
-    {label:'＋ Open question', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'A sub-question you still need to work out.  e.g. "Which meals actually travel well?"'},
+    {label:'＋ Reason', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'A premise this rests on — a claim you are asserting and will test.  e.g. "Charging downtime is unaffordable for the duty cycle"'},
+    {label:'＋ Open question', kind:'hypothesis', rel:'decomposes', dir:'out', prompt:'An unknown this depends on — no position yet; investigate to resolve it.  e.g. "Will megawatt charging be available by 2027?"'},
     {label:'⚑ Blocker', kind:'gap', rel:'blocks', dir:'in', prompt:'What is stopping this approach from working?  e.g. "I travel most weekends"'}
   ],
   solution:[{label:'⚑ Blocker', kind:'gap', rel:'blocks', dir:'in', prompt:'What is stopping this solution from working?  e.g. "No kitchen at the office"'}],
