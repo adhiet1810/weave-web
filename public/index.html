@@ -512,6 +512,18 @@
   #assistModal .as-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px 15px;border-top:1px solid var(--hairline,#eee)}
   #assistModal .as-allbtn{background:var(--ink,#141414);color:var(--page,#fff);border:none;border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
   #assistModal .as-donebtn{background:transparent;border:1px solid var(--hairline,#ddd);color:var(--body,#444);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
+  /* example library picker */
+  #exPick{position:fixed;inset:0;z-index:9740;display:none;align-items:center;justify-content:center;background:rgba(10,12,16,.5);padding:14px}
+  #exPick.on{display:flex}
+  #exPick .exp-card{width:460px;max-width:calc(100vw - 24px);max-height:84vh;display:flex;flex-direction:column;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:'Inter',system-ui,sans-serif;overflow:hidden}
+  #exPick .exp-h{display:flex;align-items:center;font-size:15px;font-weight:600;color:var(--ink,#111);padding:15px 16px 3px;letter-spacing:-.3px}
+  #exPick .exp-x{margin-left:auto;border:none;background:transparent;color:var(--mute,#999);font-size:16px;cursor:pointer;line-height:1}
+  #exPick .exp-sub{font-size:11.5px;color:var(--body,#666);line-height:1.5;padding:0 16px 10px}
+  #exPick .exp-list{overflow-y:auto;padding:4px 12px 14px;display:flex;flex-direction:column;gap:7px}
+  #exPick .exp-row{text-align:left;display:flex;flex-direction:column;gap:3px;background:var(--canvas,#fafafa);border:1px solid var(--hairline,#eee);border-radius:10px;padding:11px 13px;cursor:pointer;font-family:'Inter',sans-serif;transition:border-color .12s,background .12s}
+  #exPick .exp-row:hover{border-color:var(--create,#ab570a);background:var(--page,#fff)}
+  #exPick .exp-t{font-size:13px;font-weight:600;color:var(--ink,#111)}
+  #exPick .exp-s{font-size:11px;color:var(--body,#666);line-height:1.45}
 
   /* simple mode — hide advanced chrome for first-time users */
   body.mode-simple #aibar{display:none}
@@ -655,7 +667,7 @@
   <div class="titlebar">
     <div class="lights"><i></i><i></i><i></i></div>
     <div class="app-id">WE<b>A</b>VE</div>
-    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename this project">Untitled</span><span class="projacts"><button id="btnProjects" class="pjbtn" title="Open, switch or delete projects">☰ Projects ▾</button><button id="btnExport" class="pjbtn" title="Export this project as a Markdown file">⬇ Export</button><button id="btnLoadExample" class="pjbtn" title="Create a new project seeded from the example graph">⟳ Example</button><button id="btnNewProject" class="pjbtn" title="Create a new blank project">＋ New</button></span></div>
+    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename this project">Untitled</span><span class="projacts"><button id="btnProjects" class="pjbtn" title="Open, switch or delete projects">☰ Projects ▾</button><button id="btnExport" class="pjbtn" title="Export this project as a Markdown file">⬇ Export</button><button id="btnLoadExample" class="pjbtn" title="Open one of the example graphs as an editable copy">⟳ Examples</button><button id="btnNewProject" class="pjbtn" title="Create a new blank project">＋ New</button></span></div>
   </div>
 
   <div class="toolbar">
@@ -1984,10 +1996,42 @@ function exportMarkdown(){
   setTimeout(() => URL.revokeObjectURL(url), 1500);
   flash('Exported ' + base + '.md');
 }
-async function doLoadExample(){
-  flash('Adding example project…');
-  try{ const r = await WV.projectOp('create', { name:'Cut my food spending (example)', from:'example' }); WV.setProject(r.id); await reload(); flash('Example project opened.'); }
-  catch(e){ flash('failed: ' + e.message); }
+/* ---- example library: a picker of reference graphs, each opened as an editable copy ---- */
+const EXAMPLE_INFO = {
+  'example':     { t:'Cut my food spending',  s:'The original — capture a mess, structure it, synthesize a plan.' },
+  'ex-bedtime':  { t:'Bedtime meltdowns',     s:'Falsification: rival explanations, each with a gap that can kill it.' },
+  'ex-tired':    { t:'Always tired',          s:'Decompose one vague complaint into hypotheses you test one at a time.' },
+  'ex-job':      { t:'Should I take the job?', s:'Hypotheses vs. open questions — when to leave confidence unset.' }
+};
+async function loadExampleById(from, name){
+  flash('Adding example…');
+  try{ const r = await WV.projectOp('create', { name: name || 'Example', from: from || 'example' }); WV.setProject(r.id); await reload(); flash('Example opened — this is your own editable copy.'); }
+  catch(e){ flash('failed: ' + (e.message||e)); }
+}
+function closeExamplePicker(){ const m = document.getElementById('exPick'); if(m) m.classList.remove('on'); }
+async function openExamplePicker(){
+  let list = [];
+  try{ const res = await WV.projects(); list = res.examples || []; }
+  catch(e){ return loadExampleById('example','Cut my food spending'); }
+  if(!list.length) return loadExampleById('example','Cut my food spending');
+  let m = document.getElementById('exPick');
+  if(!m){
+    m = document.createElement('div'); m.id = 'exPick';
+    m.innerHTML = '<div class="exp-card"><div class="exp-h">Load an example<button class="exp-x" id="expX">✕</button></div><div class="exp-sub">A finished graph, opened as your own editable copy — a fast way to see how the pieces connect.</div><div class="exp-list"></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', ev => { if(ev.target === m) closeExamplePicker(); });
+    m.querySelector('#expX').addEventListener('click', closeExamplePicker);
+  }
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const rowsHtml = list.map(p => {
+    const info = EXAMPLE_INFO[p.id] || {};
+    const title = info.t || (p.name || p.id).replace(/ *\(example\) *$/i, '');
+    const sub = info.s || '';
+    return '<button class="exp-row" data-id="' + esc(p.id) + '" data-name="' + esc(title) + '"><span class="exp-t">' + esc(title) + '</span>' + (sub ? '<span class="exp-s">' + esc(sub) + '</span>' : '') + '</button>';
+  }).join('');
+  m.querySelector('.exp-list').innerHTML = rowsHtml;
+  m.querySelectorAll('.exp-row').forEach(b => b.addEventListener('click', () => { const id = b.dataset.id, nm = b.dataset.name; closeExamplePicker(); loadExampleById(id, nm); }));
+  m.classList.add('on');
 }
 async function doNewProject(){
   const name = prompt('Name the new project:', 'Untitled'); if(name === null) return;
@@ -2022,7 +2066,7 @@ async function openProjectMenu(){
   if(btn){ const r = btn.getBoundingClientRect(); m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 250)) + 'px'; m.style.top = (r.bottom + 6) + 'px'; }
   m.classList.add('on');
   m.querySelector('#pmNew').addEventListener('click', () => { closeProjectMenu(); doNewProject(); });
-  m.querySelector('#pmEx').addEventListener('click', () => { closeProjectMenu(); doLoadExample(); });
+  m.querySelector('#pmEx').addEventListener('click', () => { closeProjectMenu(); openExamplePicker(); });
   let list = [];
   try{ const res = await WV.projects(); list = res.projects || []; }
   catch(e){ const el = m.querySelector('.pm-list'); if(el) el.textContent = 'failed to load'; return; }
@@ -2169,7 +2213,7 @@ function wireLegendTips(){
 
 function wireProjectBar(){
   const n = document.getElementById('projName'); if(n) n.addEventListener('click', doRename);
-  const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', doLoadExample);
+  const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', openExamplePicker);
   const ex = document.getElementById('btnExport'); if(ex) ex.addEventListener('click', exportMarkdown);
   const np = document.getElementById('btnNewProject'); if(np) np.addEventListener('click', doNewProject);
   const pj = document.getElementById('btnProjects'); if(pj) pj.addEventListener('click', ev => { ev.stopPropagation(); const m = document.getElementById('projMenu'); if(m && m.classList.contains('on')) closeProjectMenu(); else openProjectMenu(); });
