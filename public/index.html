@@ -505,7 +505,7 @@
   #assistModal .as-it-main{flex:1;min-width:0}
   #assistModal .as-it-title{font-size:12.5px;color:var(--ink,#111);font-weight:600;line-height:1.35}
   #assistModal .as-sem{font-family:'IBM Plex Mono';font-size:8.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--solve,#003c33);background:var(--solve-wash,#edfce9);border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:400}
-  #assistModal .as-it-note{font-size:11.5px;color:var(--body,#555);line-height:1.4;margin-top:2px}
+  #assistModal .as-it-note{font-size:11.5px;color:var(--body,#555);line-height:1.4;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   #assistModal .as-add{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:11px;border:1px solid var(--hairline,#ddd);background:var(--canvas,#fafafa);color:var(--ink,#111);border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap}
   #assistModal .as-add:hover{border-color:var(--create,#ab570a);color:var(--create,#ab570a)}
   #assistModal .as-add.done{color:var(--solve,#003c33);border-color:var(--solve,#003c33);cursor:default}
@@ -2592,16 +2592,19 @@ async function aiAssist(mode){
     const d = m.querySelector('#asDone'); if(d) d.addEventListener('click', () => m.classList.remove('on'));
   }
 }
+/* keep AI proposals terse even if the model overruns the prompt caps */
+function clampWords(s, n){ if(!s) return ''; const w = String(s).trim().replace(/\s+/g,' ').split(' '); let t = w.slice(0, n).join(' '); if(w.length > n) t += '…'; return t; }
+function clampTitle(s){ return clampWords(String(s || '').replace(/[.\s]+$/,''), 8); }
 function renderAssist(out){
   const m = document.getElementById('assistModal'); if(!m || !_assistState) return;
   const { meta, items } = _assistState;
   const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  let h = out.summary ? '<div class="as-summary">' + esc(out.summary) + '</div>' : '';
+  let h = out.summary ? '<div class="as-summary">' + esc(clampWords(out.summary, 12)) + '</div>' : '';
   if(!items.length) h += '<div class="as-err">no suggestions</div>';
   items.forEach((it, i) => {
     h += '<div class="as-item" data-i="' + i + '"><div class="as-it-main">' +
-      '<div class="as-it-title">' + esc(it.title) + (it.semantic ? ' <span class="as-sem">' + esc(it.semantic) + '</span>' : '') + '</div>' +
-      (it.note ? '<div class="as-it-note">' + esc(it.note) + '</div>' : '') + '</div>' +
+      '<div class="as-it-title">' + esc(clampTitle(it.title)) + (it.semantic ? ' <span class="as-sem">' + esc(it.semantic) + '</span>' : '') + '</div>' +
+      (it.note ? '<div class="as-it-note">' + esc(clampWords(it.note, 14)) + '</div>' : '') + '</div>' +
       (meta.add ? '<button class="as-add" data-i="' + i + '">＋ Add</button>' : '') + '</div>';
   });
   m.querySelector('#asBody').innerHTML = h;
@@ -2619,7 +2622,7 @@ function applyAssistItem(i){
     const sem = ['gating','accumulative','informational'].includes(it.semantic) ? it.semantic : 'informational';
     addDimensionTo(srcId, name, sem);
   } else if(meta.kind){
-    createLinkedNodeDirect(srcId, meta.kind, meta.rel, meta.dir, it.title, i);
+    createLinkedNodeDirect(srcId, meta.kind, meta.rel, meta.dir, clampTitle(it.title), i);
     render(); if(window.__reheat) window.__reheat(0.5);
   }
 }

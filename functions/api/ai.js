@@ -135,29 +135,33 @@ const ASSIST_BASE = `You are Weave's reasoning assistant working on ONE selected
 You are given the node (title, kind, body) and its neighbours (each with rel + dir: "out" = node points to
 it, "in" = it points to node). Weave kinds: problem, hypothesis, solution, seed, synthesis, gap (a gap is an
 external blocker). Return concrete, specific items grounded in the node and its neighbours — no filler and no
-facts not derivable from the inputs. Keep every title and note short.`;
+facts not derivable from the inputs.
+LENGTH IS STRICT — these render on small cards, so be terse:
+- title: a LABEL, not a sentence. Max 7 words. No trailing period.
+- note: at most ONE short clause, max 12 words. Never two sentences. Omit rather than pad.
+- summary: max 10 words, or null.
+Write like a sticky note, not prose.`;
 
 const ASSIST_MODES = {
-  refute: `MODE refute: produce the 1-3 STRONGEST gaps that could refute the node — the tests it is most likely
-to fail if it were false. Prefer severe, specific, checkable objections over generic doubt. title = the blocker
-(a short phrase); note = one line on why it bites.`,
-  decompose: `MODE decompose: break the node into the 2-4 sub-claims (premises/reasons) it rests on, each a
-separately testable hypothesis. title = the sub-claim; note = one line on its role.`,
-  constrain: `MODE constrain: propose 1-3 dimensions (cross-cutting criteria) to weigh the node on — e.g. cost,
-time, grid capacity, payload. title = the dimension name (1-2 lowercase words); semantic = "gating" |
-"accumulative" | "informational"; note = one line on what it measures here.`,
-  find_missing: `MODE find_missing: audit the node and its neighbours; name 1-4 things MISSING from the argument —
-a claim with no gap/attack, a claim with no supporting data, an unaddressed factor, an unstated assumption.
-title = the missing piece; note = one line on why it matters. Invent no facts.`,
-  spark: `MODE spark: propose 2-4 fresh ideas sparked by the node — new seeds worth exploring. title = the idea;
-note = one line on the angle.`,
-  diverge: `MODE diverge: propose 2-4 divergent variations of the node's idea — alternatives that branch away.
-title = the variation; note = one line on how it differs.`,
+  refute: `MODE refute: give the 1-3 STRONGEST gaps that could refute the node — the tests it most likely fails
+if false. Severe, specific, checkable. title = the blocker (≤7 words); note = why it bites (≤12 words).`,
+  decompose: `MODE decompose: break the node into the 2-4 sub-claims (premises) it rests on, each separately
+testable. title = the sub-claim (≤7 words); note = its role (≤12 words).`,
+  constrain: `MODE constrain: propose 1-3 dimensions to weigh the node on — e.g. cost, time, grid capacity,
+payload. title = dimension name (1-2 lowercase words); semantic = "gating"|"accumulative"|"informational";
+note = what it measures here (≤12 words).`,
+  find_missing: `MODE find_missing: audit the node and its neighbours; name 1-4 things MISSING — a claim with no
+gap/attack, a claim with no data, an unaddressed factor, an unstated assumption. title = the missing piece
+(≤7 words); note = why it matters (≤12 words). Invent no facts.`,
+  spark: `MODE spark: propose 2-4 fresh ideas sparked by the node — new seeds. title = the idea (≤7 words);
+note = the angle (≤12 words).`,
+  diverge: `MODE diverge: propose 2-4 divergent variations that branch away. title = the variation (≤7 words);
+note = how it differs (≤12 words).`,
 };
 
-const ASSIST_JSON_HINT = `Return ONLY a JSON object: {"items": array of {"title": short string, "note": one-line
-string or null, "semantic": (constrain only) "gating"|"accumulative"|"informational" or null}, "summary": one
-short line or null}.`;
+const ASSIST_JSON_HINT = `Return ONLY a JSON object: {"items": array of {"title": ≤7-word label, "note": ≤12-word
+clause or null, "semantic": (constrain only) "gating"|"accumulative"|"informational" or null}, "summary": ≤10-word
+line or null}. Terse. No sentences longer than the limits.`;
 
 const ASSIST_SCHEMA = {
   type: "object",
