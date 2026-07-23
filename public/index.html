@@ -1546,25 +1546,51 @@ document.querySelectorAll('#matrixview [data-node]').forEach(el=>{
 
 /* ===================== Obsidian-style graph engine ===================== */
 const RC = { solve:{x:258,y:295}, create:{x:752,y:295} };
-/* --- dynamic region sizing: boxes grow as a region gets crowded --- */
-const REGION_BOX = { solve:{x:32,y:55,w:452,h:480}, create:{x:526,y:55,w:452,h:480} };
+/* --- dynamic region sizing: the visible box hugs its content and grows with complexity ---
+   REGION_BOX = physics working area (gravity + clamp, sized by load).
+   REGION_DRAW = the tinted box actually shown; wraps the region's nodes + any open facets. */
+const REGION_BOX  = { solve:{x:32,y:55,w:452,h:480}, create:{x:526,y:55,w:452,h:480} };
+const REGION_DRAW = { solve:{x:32,y:55,w:452,h:480}, create:{x:526,y:55,w:452,h:480} };
 const STAGE = { w:1010, h:590 };
-const RGN = { minW:452, minH:480, cap:9, gap:42, padX:32, padY:55, mx:76, my:52 };
+const RGN = { minW:452, minH:480, cap:7, gap:42, padX:32, padY:55, mx:76, my:52, fpad:72 };
+function regionOf(n){ return (n && n.region==='create') ? 'create' : 'solve'; }
 function sizeRegions(){
-  const cnt={solve:0,create:0};
-  Object.values(NODES).forEach(n=>{ cnt[(n.region==='create')?'create':'solve']++; });
-  const dim=r=>{ const s=Math.max(1,Math.sqrt(cnt[r]/RGN.cap)); return { w:Math.round(RGN.minW*s), h:Math.round(RGN.minH*s) }; };
+  // load = node count + partial credit for each node's dimensions (a facet-rich node is "complex")
+  const load={solve:0,create:0};
+  Object.values(NODES).forEach(n=>{ const r=regionOf(n); load[r]+=1; load[r]+=Object.keys(n.facets||{}).length*0.5; });
+  const dim=r=>{ const s=Math.max(1,Math.sqrt(load[r]/RGN.cap)); return { w:Math.round(RGN.minW*s), h:Math.round(RGN.minH*s) }; };
   const ds=dim('solve'), dc=dim('create');
   const sx=RGN.padX, sy=RGN.padY, cx=sx+ds.w+RGN.gap, cy=RGN.padY;
   REGION_BOX.solve={x:sx,y:sy,w:ds.w,h:ds.h};
   REGION_BOX.create={x:cx,y:cy,w:dc.w,h:dc.h};
   RC.solve.x=sx+ds.w/2; RC.solve.y=sy+ds.h/2;
   RC.create.x=cx+dc.w/2; RC.create.y=cy+dc.h/2;
-  STAGE.w=cx+dc.w+RGN.padX;
-  STAGE.h=RGN.padY+Math.max(ds.h,dc.h)+RGN.padY;
+  drawRegions();
+}
+function drawRegions(){
+  const shown = (typeof expanded!=='undefined' && expanded && expanded.has) ? expanded : null;
+  ['solve','create'].forEach(r=>{
+    const w=REGION_BOX[r]; let x0=w.x, y0=w.y, x1=w.x+w.w, y1=w.y+w.h;
+    Object.entries(NODES).forEach(([id,n])=>{
+      if(regionOf(n)!==r) return;
+      x0=Math.min(x0,n.x-RGN.fpad); y0=Math.min(y0,n.y-RGN.fpad); x1=Math.max(x1,n.x+RGN.fpad); y1=Math.max(y1,n.y+RGN.fpad);
+      if(shown && shown.has(id)) Object.values(n.facets||{}).forEach(f=>{
+        x0=Math.min(x0,f.x-RGN.fpad); y0=Math.min(y0,f.y-RGN.fpad); x1=Math.max(x1,f.x+RGN.fpad); y1=Math.max(y1,f.y+RGN.fpad);
+      });
+    });
+    x0=Math.max(8,x0); y0=Math.max(8,y0);
+    REGION_DRAW[r]={x:x0,y:y0,w:x1-x0,h:y1-y0};
+  });
+  // keep the two tinted boxes from crossing: fence them at the gap midline
+  const mid=(REGION_BOX.solve.x+REGION_BOX.solve.w + REGION_BOX.create.x)/2;
+  const S=REGION_DRAW.solve, C=REGION_DRAW.create;
+  if(S.x+S.w > mid-6) S.w=Math.max(80,(mid-6)-S.x);
+  if(C.x < mid+6){ const rt=C.x+C.w; C.x=mid+6; C.w=Math.max(80,rt-C.x); }
   const rs=document.getElementById('region-solve'), rc=document.getElementById('region-create');
-  if(rs){ rs.style.left=sx+'px'; rs.style.top=sy+'px'; rs.style.width=ds.w+'px'; rs.style.height=ds.h+'px'; }
-  if(rc){ rc.style.left=cx+'px'; rc.style.top=cy+'px'; rc.style.width=dc.w+'px'; rc.style.height=dc.h+'px'; }
+  if(rs){ rs.style.left=S.x+'px'; rs.style.top=S.y+'px'; rs.style.width=S.w+'px'; rs.style.height=S.h+'px'; }
+  if(rc){ rc.style.left=C.x+'px'; rc.style.top=C.y+'px'; rc.style.width=C.w+'px'; rc.style.height=C.h+'px'; }
+  STAGE.w=Math.max(1010, S.x+S.w+RGN.padX, C.x+C.w+RGN.padX);
+  STAGE.h=Math.max(590, S.y+S.h+RGN.padY, C.y+C.h+RGN.padY);
   if(typeof stage!=='undefined'&&stage){ stage.style.width=STAGE.w+'px'; stage.style.height=STAGE.h+'px'; }
 }
 window.__sizeRegions=sizeRegions;
@@ -1649,6 +1675,7 @@ function _stepSim(){
 function paint(){
   document.querySelectorAll('#nodes .node').forEach(el=>{ const n=NODES[el.dataset.id]; if(!n)return; el.style.left=n.x+'px'; el.style.top=n.y+'px'; });
   document.querySelectorAll('#facets .facet').forEach(el=>{ const n=NODES[el.dataset.id]; if(!n)return; const f=n.facets[el.dataset.fid]; if(!f)return; f.x=n.x+f._ox; f.y=n.y+f._oy; el.style.left=f.x+'px'; el.style.top=f.y+'px'; });
+  if(typeof drawRegions==='function') drawRegions();
   renderEdges();
 }
 window.__paint=paint;
