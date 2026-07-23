@@ -1046,7 +1046,7 @@ function renderEdges(){
   STRUCT.forEach(e=>{
     const A=NODES[e.a],B=NODES[e.b];
     const col=e.dir==='s'?C_SOLVE:C_CREATE, mk=e.dir==='s'?'as':'ac';
-    svg+='<path d="'+arrowPath(A,B,21,29)+'" stroke="'+col+'" stroke-width="1.8" fill="none" stroke-opacity=".5" marker-end="url(#'+mk+')"/>';
+    svg+='<path d="'+arrowPath(A,B,21,29)+'" stroke="'+col+'" stroke-width="2.1" fill="none" stroke-opacity=".72" marker-end="url(#'+mk+')"/>';
     if(e.l){
       const lab=document.createElement('div');
       lab.className='elabel ex '+(e.dir==='s'?'s':'c');
@@ -1595,7 +1595,7 @@ _wrap.addEventListener('wheel',ev=>{
 },{passive:false});
 
 /* --- force simulation (repulsion + link springs + region gravity) --- */
-const REP=54000, LINK=155, LINKK=0.05, GRAV=0.055, DAMP=0.82;
+const REP=54000, LINK=120, LINKK=0.10, GRAV=0.062, DAMP=0.82;
 let _alpha=0, _raf=0;
 function reheat(a){ _alpha=Math.max(_alpha, a||0.8); if(!_raf) _raf=requestAnimationFrame(_loop); }
 window.__reheat=reheat;
