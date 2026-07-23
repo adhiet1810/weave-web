@@ -1146,6 +1146,7 @@ function renderBar(){
   else hint.innerHTML='Click a node to <b class="s">expand its facets</b> · click a region to focus · the <b class="r">scout</b> watches for exhausted vectors.';
 }
 function applyRegions(){
+  sizeRegions();
   ['solve','create'].forEach(r=>{
     const el=document.getElementById('region-'+r);
     const pur=pursuing[r];
@@ -1545,6 +1546,28 @@ document.querySelectorAll('#matrixview [data-node]').forEach(el=>{
 
 /* ===================== Obsidian-style graph engine ===================== */
 const RC = { solve:{x:258,y:295}, create:{x:752,y:295} };
+/* --- dynamic region sizing: boxes grow as a region gets crowded --- */
+const REGION_BOX = { solve:{x:32,y:55,w:452,h:480}, create:{x:526,y:55,w:452,h:480} };
+const STAGE = { w:1010, h:590 };
+const RGN = { minW:452, minH:480, cap:9, gap:42, padX:32, padY:55, mx:76, my:52 };
+function sizeRegions(){
+  const cnt={solve:0,create:0};
+  Object.values(NODES).forEach(n=>{ cnt[(n.region==='create')?'create':'solve']++; });
+  const dim=r=>{ const s=Math.max(1,Math.sqrt(cnt[r]/RGN.cap)); return { w:Math.round(RGN.minW*s), h:Math.round(RGN.minH*s) }; };
+  const ds=dim('solve'), dc=dim('create');
+  const sx=RGN.padX, sy=RGN.padY, cx=sx+ds.w+RGN.gap, cy=RGN.padY;
+  REGION_BOX.solve={x:sx,y:sy,w:ds.w,h:ds.h};
+  REGION_BOX.create={x:cx,y:cy,w:dc.w,h:dc.h};
+  RC.solve.x=sx+ds.w/2; RC.solve.y=sy+ds.h/2;
+  RC.create.x=cx+dc.w/2; RC.create.y=cy+dc.h/2;
+  STAGE.w=cx+dc.w+RGN.padX;
+  STAGE.h=RGN.padY+Math.max(ds.h,dc.h)+RGN.padY;
+  const rs=document.getElementById('region-solve'), rc=document.getElementById('region-create');
+  if(rs){ rs.style.left=sx+'px'; rs.style.top=sy+'px'; rs.style.width=ds.w+'px'; rs.style.height=ds.h+'px'; }
+  if(rc){ rc.style.left=cx+'px'; rc.style.top=cy+'px'; rc.style.width=dc.w+'px'; rc.style.height=dc.h+'px'; }
+  if(typeof stage!=='undefined'&&stage){ stage.style.width=STAGE.w+'px'; stage.style.height=STAGE.h+'px'; }
+}
+window.__sizeRegions=sizeRegions;
 const DEG = {}; window.__DEG = DEG;
 Object.keys(NODES).forEach(id=>DEG[id]=0);
 STRUCT.forEach(e=>{ if(DEG[e.a]!=null)DEG[e.a]++; if(DEG[e.b]!=null)DEG[e.b]++; });
@@ -1575,8 +1598,8 @@ function applyView(){
 }
 function fitView(){
   const w=_wrap.clientWidth, h=_wrap.clientHeight;
-  view.scale=Math.max(0.25, Math.min(1.05, Math.min((w-48)/1010,(h-48)/590)));
-  view.panX=(w-1010*view.scale)/2; view.panY=(h-590*view.scale)/2;
+  view.scale=Math.max(0.2, Math.min(1.05, Math.min((w-48)/STAGE.w,(h-48)/STAGE.h)));
+  view.panX=(w-STAGE.w*view.scale)/2; view.panY=(h-STAGE.h*view.scale)/2;
   applyView();
 }
 window.__fitView=fitView;
@@ -1619,7 +1642,8 @@ function _stepSim(){
     if(id===dragId){ n.vx=0; n.vy=0; return; }
     n.vx=(n.vx+n.fx)*DAMP; n.vy=(n.vy+n.fy)*DAMP;
     n.x+=n.vx*_alpha; n.y+=n.vy*_alpha;
-    n.x=Math.max(72,Math.min(938,n.x)); n.y=Math.max(58,Math.min(542,n.y));
+    const rb=REGION_BOX[n.region]||REGION_BOX.solve;
+    n.x=Math.max(rb.x+RGN.mx,Math.min(rb.x+rb.w-RGN.mx,n.x)); n.y=Math.max(rb.y+RGN.my,Math.min(rb.y+rb.h-RGN.my,n.y));
   });
 }
 function paint(){
