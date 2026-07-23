@@ -130,6 +130,49 @@ const SUGGEST_KIND_SCHEMA = {
   },
 };
 
+// ---- assist: the toolbar AI actions (refute / decompose / constrain / find_missing / spark / diverge) ----
+const ASSIST_BASE = `You are Weave's reasoning assistant working on ONE selected node in a reasoning graph.
+You are given the node (title, kind, body) and its neighbours (each with rel + dir: "out" = node points to
+it, "in" = it points to node). Weave kinds: problem, hypothesis, solution, seed, synthesis, gap (a gap is an
+external blocker). Return concrete, specific items grounded in the node and its neighbours — no filler and no
+facts not derivable from the inputs. Keep every title and note short.`;
+
+const ASSIST_MODES = {
+  refute: `MODE refute: produce the 1-3 STRONGEST gaps that could refute the node — the tests it is most likely
+to fail if it were false. Prefer severe, specific, checkable objections over generic doubt. title = the blocker
+(a short phrase); note = one line on why it bites.`,
+  decompose: `MODE decompose: break the node into the 2-4 sub-claims (premises/reasons) it rests on, each a
+separately testable hypothesis. title = the sub-claim; note = one line on its role.`,
+  constrain: `MODE constrain: propose 1-3 dimensions (cross-cutting criteria) to weigh the node on — e.g. cost,
+time, grid capacity, payload. title = the dimension name (1-2 lowercase words); semantic = "gating" |
+"accumulative" | "informational"; note = one line on what it measures here.`,
+  find_missing: `MODE find_missing: audit the node and its neighbours; name 1-4 things MISSING from the argument —
+a claim with no gap/attack, a claim with no supporting data, an unaddressed factor, an unstated assumption.
+title = the missing piece; note = one line on why it matters. Invent no facts.`,
+  spark: `MODE spark: propose 2-4 fresh ideas sparked by the node — new seeds worth exploring. title = the idea;
+note = one line on the angle.`,
+  diverge: `MODE diverge: propose 2-4 divergent variations of the node's idea — alternatives that branch away.
+title = the variation; note = one line on how it differs.`,
+};
+
+const ASSIST_JSON_HINT = `Return ONLY a JSON object: {"items": array of {"title": short string, "note": one-line
+string or null, "semantic": (constrain only) "gating"|"accumulative"|"informational" or null}, "summary": one
+short line or null}.`;
+
+const ASSIST_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["items"],
+  properties: {
+    items: {
+      type: "array",
+      items: { type: "object", additionalProperties: false, required: ["title"],
+        properties: { title: { type: "string" }, note: { type: ["string", "null"] }, semantic: { type: ["string", "null"] } } },
+    },
+    summary: { type: ["string", "null"] },
+  },
+};
+
 // Pull a JSON object out of a model reply, tolerating ```json fences / stray prose.
 function extractJson(s) {
   if (!s) return null;
@@ -221,6 +264,25 @@ export async function onRequestPost({ env, request }) {
     const content = res.data.choices?.[0]?.message?.content ?? "";
     const out = extractJson(content);
     if (!out || !Array.isArray(out.candidates)) return Response.json({ error: "model did not return valid JSON", raw: content }, { status: 502 });
+    return Response.json(out);
+  }
+
+  if (body.action === "assist") {
+    const inst = ASSIST_MODES[body.mode];
+    if (!inst) return Response.json({ error: "unknown assist mode" }, { status: 400 });
+    const messages = [
+      { role: "system", content: ASSIST_BASE + "\n\n" + inst + "\n\n" + ASSIST_JSON_HINT },
+      { role: "user", content: JSON.stringify(body.context) },
+    ];
+    let res = await callOpenRouter(key, origin, {
+      model, messages,
+      response_format: { type: "json_schema", json_schema: { name: "assist", strict: true, schema: ASSIST_SCHEMA } },
+    });
+    if (!res.ok) res = await callOpenRouter(key, origin, { model, messages });
+    if (!res.ok) return Response.json({ error: res.data.error || "openrouter error", detail: res.data }, { status: res.status });
+    const content = res.data.choices?.[0]?.message?.content ?? "";
+    const out = extractJson(content);
+    if (!out || !Array.isArray(out.items)) return Response.json({ error: "model did not return valid JSON", raw: content }, { status: 502 });
     return Response.json(out);
   }
 

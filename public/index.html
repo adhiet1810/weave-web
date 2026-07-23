@@ -486,6 +486,32 @@
   /* instant legend tooltip (native title has a ~1.5s delay) */
   #legendTip{position:fixed;z-index:10060;max-width:262px;background:var(--ink,#141414);color:var(--page,#fff);font-family:'Inter',system-ui,sans-serif;font-size:11.5px;line-height:1.5;letter-spacing:-.1px;padding:9px 11px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .12s}
   #legendTip.on{opacity:1}
+  /* instant tooltip for the AI toolbar buttons */
+  #uiTip{position:fixed;z-index:10060;max-width:272px;background:var(--ink,#141414);color:var(--page,#fff);font-family:'Inter',system-ui,sans-serif;font-size:11.5px;line-height:1.5;padding:9px 11px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .12s}
+  #uiTip.on{opacity:1}
+  /* AI assist proposal modal */
+  #assistModal{position:fixed;inset:0;z-index:9720;display:none;align-items:center;justify-content:center;background:rgba(10,12,16,.5)}
+  #assistModal.on{display:flex}
+  #assistModal .as-card{width:468px;max-width:calc(100vw - 26px);max-height:86vh;display:flex;flex-direction:column;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:'Inter',system-ui,sans-serif}
+  #assistModal .as-head{display:flex;align-items:center;gap:8px;padding:15px 16px 3px}
+  #assistModal #asTitle{font-size:15px;font-weight:600;color:var(--ink,#111);flex:1;letter-spacing:-.3px}
+  #assistModal .as-x{border:none;background:transparent;color:var(--mute,#999);font-size:16px;cursor:pointer;line-height:1}
+  #assistModal .as-sub{font-family:'IBM Plex Mono';font-size:10px;color:var(--mute,#999);padding:0 16px 11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #assistModal .as-body{overflow-y:auto;padding:0 16px;flex:1}
+  #assistModal .as-load,#assistModal .as-err{font-size:12.5px;color:var(--mute,#999);padding:14px 2px}
+  #assistModal .as-err{color:var(--k-gap,#c00)}
+  #assistModal .as-summary{font-size:12px;color:var(--body,#555);line-height:1.5;margin:0 0 8px}
+  #assistModal .as-item{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-top:1px solid var(--hairline,#eee)}
+  #assistModal .as-it-main{flex:1;min-width:0}
+  #assistModal .as-it-title{font-size:12.5px;color:var(--ink,#111);font-weight:600;line-height:1.35}
+  #assistModal .as-sem{font-family:'IBM Plex Mono';font-size:8.5px;letter-spacing:.4px;text-transform:uppercase;color:var(--solve,#003c33);background:var(--solve-wash,#edfce9);border-radius:4px;padding:1px 5px;margin-left:4px;font-weight:400}
+  #assistModal .as-it-note{font-size:11.5px;color:var(--body,#555);line-height:1.4;margin-top:2px}
+  #assistModal .as-add{flex:0 0 auto;font-family:'Inter',sans-serif;font-size:11px;border:1px solid var(--hairline,#ddd);background:var(--canvas,#fafafa);color:var(--ink,#111);border-radius:6px;padding:5px 9px;cursor:pointer;white-space:nowrap}
+  #assistModal .as-add:hover{border-color:var(--create,#ab570a);color:var(--create,#ab570a)}
+  #assistModal .as-add.done{color:var(--solve,#003c33);border-color:var(--solve,#003c33);cursor:default}
+  #assistModal .as-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px 15px;border-top:1px solid var(--hairline,#eee)}
+  #assistModal .as-allbtn{background:var(--ink,#141414);color:var(--page,#fff);border:none;border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+  #assistModal .as-donebtn{background:transparent;border:1px solid var(--hairline,#ddd);color:var(--body,#444);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:'Inter',sans-serif}
 
   /* simple mode — hide advanced chrome for first-time users */
   body.mode-simple #aibar{display:none}
@@ -1086,9 +1112,15 @@ function renderBar(){
   ACTIONS[m].forEach(([ic,label])=>{
     const b=document.createElement('button');
     b.className='aiact '+m;
-    b.innerHTML='<span class="g"></span>'+ic+' '+label;
-    if(label==='Stress-test') b.addEventListener('click',()=>{ revealScout(); });
-    if(label==='Synthesize') b.addEventListener('click',()=>{ runSynthesize(); });
+    b.innerHTML='<span class="g"></span>'+ic+' '+label; b.setAttribute('data-tip',(typeof AI_TIP!=='undefined'&&AI_TIP[label])||'');
+    if(label==='Synthesize') b.addEventListener('click',()=>runSynthesize());
+    if(label==='Combine') b.addEventListener('click',()=>runSynthesize());
+    if(label==='Decompose') b.addEventListener('click',()=>aiAssist('decompose'));
+    if(label==='Constrain') b.addEventListener('click',()=>aiAssist('constrain'));
+    if(label==='Find missing piece') b.addEventListener('click',()=>aiAssist('find_missing'));
+    if(label==='Stress-test') b.addEventListener('click',()=>aiAssist('refute'));
+    if(label==='Spark') b.addEventListener('click',()=>aiAssist('spark'));
+    if(label==='Diverge') b.addEventListener('click',()=>aiAssist('diverge'));
     aibar.appendChild(b);
   });
   document.getElementById('ms-solve').classList.toggle('on',sessionMode==='solve');
@@ -2423,6 +2455,116 @@ function renderKindSuggestion(cands, question){
   }));
 }
 
+/* ============ toolbar AI actions — refute / decompose / constrain / find-missing / spark / diverge ============ */
+const AI_TIP = {
+  'Decompose':'AI breaks this claim into the sub-claims (reasons) it rests on — each a testable hypothesis.',
+  'Constrain':'AI proposes a dimension to weigh this on (cost, time, grid capacity…), added as a facet.',
+  'Find missing piece':'AI audits the graph — what is missing: a claim with no gap, no data, an unaddressed factor.',
+  'Stress-test':'AI generates the strongest gaps that could refute the selected claim — your falsification adversary.',
+  'Combine':'Fuse the seeds into one synthesis (AI proposes; you accept).',
+  'Diverge':'AI proposes divergent variations of this idea as new seeds.',
+  'Spark':'AI proposes fresh ideas sparked from this node, as new seeds.',
+  'Synthesize':'Fuse several seeds into one new synthesis (AI proposes on novel × feasible).'
+};
+const ASSIST_META = {
+  refute:{ label:'Refute', kind:'gap', rel:'blocks', dir:'in', add:true, verb:'the strongest gaps against this claim' },
+  decompose:{ label:'Decompose', kind:'hypothesis', rel:'decomposes', dir:'out', add:true, verb:'the sub-claims this rests on' },
+  constrain:{ label:'Add dimensions', facet:true, add:true, verb:'dimensions to weigh this on' },
+  find_missing:{ label:'Missing pieces', add:false, verb:'what is missing from the argument' },
+  spark:{ label:'Spark', kind:'seed', rel:'sparks', dir:'out', add:true, verb:'new ideas sparked from this' },
+  diverge:{ label:'Diverge', kind:'seed', rel:'sparks', dir:'out', add:true, verb:'divergent variations' }
+};
+function createLinkedNodeDirect(srcId, kind, rel, dir, title, idx){
+  const s = NODES[srcId]; if(!s) return null;
+  const id = 'n' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36) + (idx || 0);
+  const region = KIND_REGION[kind] || s.region;
+  const x = (s.x || 400) + (region === 'create' ? 165 : -165) * (dir === 'in' ? -1 : 1);
+  const y = (s.y || 300) + 60 + (idx || 0) * 48;
+  NODES[id] = { kind, region, t: title, x, y, facets: {}, fresh: true };
+  THREADS[id] = { eyebrow: kind + ' · ' + id, msgs: [], dist: null, conf: 0, stale: 'freeform' };
+  if(typeof NODEDATA !== 'undefined') NODEDATA[id] = { id, kind, region, title, state: 'freeform', freeform: true, distillate: null, confidence: null, facets: [], body: '' };
+  const a = dir === 'out' ? srcId : id, b = dir === 'out' ? id : srcId;
+  if(['decomposes','answers','blocks','sparks','combines','refines'].includes(rel))
+    STRUCT.push({ a, b, dir: (rel === 'sparks' || rel === 'combines') ? 'c' : 's', l: rel });
+  WV.mutate('upsertNode', { node: { id, kind, region, title, state: 'freeform' } })
+    .then(() => WV.mutate('addEdge', { src: a, to_id: b, rel })).catch(()=>{});
+  return id;
+}
+function assistEls(){
+  let m = document.getElementById('assistModal');
+  if(!m){
+    m = document.createElement('div'); m.id = 'assistModal';
+    m.innerHTML = '<div class="as-card"><div class="as-head"><span id="asTitle"></span><button class="as-x" id="asClose">✕</button></div><div class="as-sub" id="asSub"></div><div class="as-body" id="asBody"></div><div class="as-foot" id="asFoot"></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', ev => { if(ev.target === m) m.classList.remove('on'); });
+    m.querySelector('#asClose').addEventListener('click', () => m.classList.remove('on'));
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && m.classList.contains('on')) m.classList.remove('on'); });
+  }
+  return m;
+}
+let _assistState = null;
+async function aiAssist(mode){
+  const meta = ASSIST_META[mode]; if(!meta) return;
+  const id = (sel || '').split('.')[0]; const n = NODES[id];
+  if(!n){ flash('Select a node first, then ' + meta.label + '.'); return; }
+  const m = assistEls();
+  m.querySelector('#asTitle').textContent = '✨ ' + meta.label;
+  m.querySelector('#asSub').textContent = 'on “' + (n.t || id) + '”';
+  m.querySelector('#asBody').innerHTML = '<div class="as-load">✨ finding ' + meta.verb + '…</div>';
+  m.querySelector('#asFoot').innerHTML = '';
+  m.classList.add('on');
+  try{
+    const ctx = gatherKindContext(id, n.t, (typeof NODEDATA !== 'undefined' && NODEDATA[id] && NODEDATA[id].body) || '');
+    const out = await WV.ai({ action: 'assist', mode, context: ctx });
+    _assistState = { mode, meta, srcId: id, items: out.items || [] };
+    renderAssist(out);
+  }catch(e){
+    m.querySelector('#asBody').innerHTML = '<div class="as-err">failed: ' + (e.message || e) + ' — is the AI key set on the server?</div>';
+    m.querySelector('#asFoot').innerHTML = '<button class="as-donebtn" id="asDone">Close</button>';
+    const d = m.querySelector('#asDone'); if(d) d.addEventListener('click', () => m.classList.remove('on'));
+  }
+}
+function renderAssist(out){
+  const m = document.getElementById('assistModal'); if(!m || !_assistState) return;
+  const { meta, items } = _assistState;
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let h = out.summary ? '<div class="as-summary">' + esc(out.summary) + '</div>' : '';
+  if(!items.length) h += '<div class="as-err">no suggestions</div>';
+  items.forEach((it, i) => {
+    h += '<div class="as-item" data-i="' + i + '"><div class="as-it-main">' +
+      '<div class="as-it-title">' + esc(it.title) + (it.semantic ? ' <span class="as-sem">' + esc(it.semantic) + '</span>' : '') + '</div>' +
+      (it.note ? '<div class="as-it-note">' + esc(it.note) + '</div>' : '') + '</div>' +
+      (meta.add ? '<button class="as-add" data-i="' + i + '">＋ Add</button>' : '') + '</div>';
+  });
+  m.querySelector('#asBody').innerHTML = h;
+  m.querySelector('#asFoot').innerHTML = (meta.add && items.length)
+    ? '<button class="as-donebtn" id="asDone">Done</button><button class="as-allbtn" id="asAll">＋ Add all</button>'
+    : '<button class="as-donebtn" id="asDone">Close</button>';
+  m.querySelectorAll('.as-add').forEach(btn => btn.addEventListener('click', ev => { ev.stopPropagation(); applyAssistItem(+btn.dataset.i); btn.textContent = '✓ Added'; btn.disabled = true; btn.classList.add('done'); }));
+  const all = m.querySelector('#asAll'); if(all) all.addEventListener('click', () => { items.forEach((_, i) => applyAssistItem(i)); m.classList.remove('on'); });
+  const done = m.querySelector('#asDone'); if(done) done.addEventListener('click', () => m.classList.remove('on'));
+}
+function applyAssistItem(i){
+  if(!_assistState) return; const { meta, srcId, items } = _assistState; const it = items[i]; if(!it) return;
+  if(meta.facet){
+    const name = (it.title || '').trim().toLowerCase(); if(!name) return;
+    const sem = ['gating','accumulative','informational'].includes(it.semantic) ? it.semantic : 'informational';
+    addDimensionTo(srcId, name, sem);
+  } else if(meta.kind){
+    createLinkedNodeDirect(srcId, meta.kind, meta.rel, meta.dir, it.title, i);
+    render(); if(window.__reheat) window.__reheat(0.5);
+  }
+}
+function wireAiTips(){
+  const bar = document.getElementById('aibar'); if(!bar) return;
+  let tip = document.getElementById('uiTip');
+  if(!tip){ tip = document.createElement('div'); tip.id = 'uiTip'; document.body.appendChild(tip); }
+  bar.addEventListener('mouseover', ev => { const b = ev.target.closest('.aiact'); if(!b) return; const t = b.getAttribute('data-tip'); if(!t){ tip.classList.remove('on'); return; }
+    tip.textContent = t; tip.classList.add('on'); const r = b.getBoundingClientRect(); let left = r.left, top = r.bottom + 8; const tw = tip.offsetWidth;
+    if(left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8; tip.style.left = Math.max(8, left) + 'px'; tip.style.top = top + 'px'; });
+  bar.addEventListener('mouseout', ev => { if(ev.target.closest('.aiact')) tip.classList.remove('on'); });
+}
+
 function wireContextMenu(){
   if(typeof nodesEl === 'undefined' || !nodesEl) return;
   nodesEl.addEventListener('contextmenu', ev => {
@@ -2712,6 +2854,7 @@ async function boot(){
   wireEdgeEditing();
   wireMobile();
   wireLegendTips();
+  wireAiTips();
   applyProject(WEAVE_GRAPH);
   sel = (WEAVE_GRAPH.nodes[0] || {}).id || null;
   renderInbox(); render(); showThreadFor(sel);
