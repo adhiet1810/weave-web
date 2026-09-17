@@ -1,13 +1,19 @@
 # Copy to .dev.vars for local `wrangler pages dev`. NEVER commit .dev.vars.
 # These are read as env bindings by the Pages Functions at runtime.
 
-# Required for the /api/ai proxy. The key lives here (server-side) only —
-# it is never sent to or exposed in the browser.
-OPENROUTER_API_KEY=sk-or-...
+# ── AI is bring-your-own-key (BYOK) ──────────────────────────────────────────
+# Most users connect their own key IN THE APP (top bar → "✦ AI"). That key
+# lives only in the user's browser and is sent directly to their provider —
+# it never touches this server, and NOTHING here is required for AI to work.
+#
+# The variable below is OPTIONAL: set it only if you also want to offer the
+# server-side /api/ai proxy as a fallback for visitors who don't bring a key.
+# When set, the key stays server-side and is never exposed to the browser.
+OPENROUTER_API_KEY=
 
 # Optional. If set, every /api/* request must send `Authorization: Bearer <APP_TOKEN>`.
 # Leave unset for open local dev.
 APP_TOKEN=
 
-# Optional. Overrides the default model pinned in wrangler.toml.
-OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
+# Optional. Default model for the server /api/ai proxy (client BYOK sets its own).
+OPENROUTER_MODEL=deepseek/deepseek-v4-pro

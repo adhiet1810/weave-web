@@ -1,7 +1,7 @@
 // POST /api/mutate — apply one write op to the active project's vault, return the fresh graph.
 // The active project comes from the X-Weave-Project header (see activeVault).
 // Body: { op, ... }.  Ops: upsertNode, deleteNode, addEdge, deleteEdge,
-//                          addFacet, addCapture, deleteCapture, promote, editNode, ...
+//                          addFacet, addCapture, deleteCapture, promote, editNode, importVault, ...
 import { derive } from "../_lib/derive.js";
 import { requireAuth, EXAMPLE, activeVault } from "../_lib/auth.js";
 
@@ -112,6 +112,65 @@ async function apply(db, op, a, vault) {
       ]);
       if (a.name) await apply(db, "renameProject", { name: a.name }, vault);
       return;
+    case "importVault": {
+      // Rebuild the active vault from a portable bundle (see GET /api/export).
+      // The client always calls this on a NEWLY created project, so an import
+      // can never silently overwrite work the user already had.
+      const b = a.bundle || {};
+      if (b.weave !== 1) throw new Error("not a Weave bundle");
+      const nodes = Array.isArray(b.nodes) ? b.nodes : [];
+      const facets = Array.isArray(b.facets) ? b.facets : [];
+      const edges = Array.isArray(b.edges) ? b.edges : [];
+      const captures = Array.isArray(b.captures) ? b.captures : [];
+      if (nodes.length > 5000 || edges.length > 20000 || facets.length > 20000 || captures.length > 5000) {
+        throw new Error("bundle too large");
+      }
+      const stmts = [
+        db.prepare("DELETE FROM nodes WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM facets WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM edges WHERE vault_id=?").bind(vault),
+        db.prepare("DELETE FROM captures WHERE vault_id=?").bind(vault),
+      ];
+      for (const n of nodes) {
+        if (!n || !n.id) continue;
+        stmts.push(
+          db.prepare("INSERT INTO nodes (vault_id," + COLS.nodes + ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(
+            vault, String(n.id), n.kind ?? null, n.state ?? "freeform", n.region ?? null, n.lean ?? "inherit",
+            n.cluster ?? null, n.title ?? null, n.distillate_text ?? null, n.distillate_confidence ?? null,
+            n.distillate_updated ?? null, n.body ?? "", n.created ?? now(), now()
+          )
+        );
+      }
+      for (const f of facets) {
+        if (!f || !f.node_id || !f.name) continue;
+        stmts.push(
+          db.prepare("INSERT INTO facets (vault_id," + COLS.facets + ") VALUES (?,?,?,?,?,?)").bind(
+            vault, String(f.node_id), String(f.name), f.semantic ?? null, f.distillate ?? null, f.confidence ?? null
+          )
+        );
+      }
+      for (const e of edges) {
+        if (!e || !e.src || !e.to_id || !e.rel) continue;
+        stmts.push(
+          db.prepare("INSERT INTO edges (vault_id," + COLS.edges + ") VALUES (?,?,?,?,?,?,?)").bind(
+            vault, String(e.src), e.from_facet ?? null, String(e.to_id), e.to_facet ?? null, String(e.rel), e.note ?? null
+          )
+        );
+      }
+      for (const c of captures) {
+        if (!c || !c.id) continue;
+        stmts.push(
+          db.prepare("INSERT INTO captures (vault_id," + COLS.captures + ") VALUES (?,?,?,?)").bind(
+            vault, String(c.id), c.text ?? "", c.created ?? now()
+          )
+        );
+      }
+      await db.batch(stmts);
+      if (b.project && b.project.name) {
+        await apply(db, "renameProject", { name: String(b.project.name).slice(0, 120) }, vault);
+      }
+      return;
+    }
     case "loadExample": // clone the example template into the active project
       await db.batch([
         db.prepare("DELETE FROM nodes WHERE vault_id=?").bind(vault),

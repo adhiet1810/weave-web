@@ -555,7 +555,7 @@
     .vault .path{display:none}
     .projname{max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
     /* redundant on mobile — New/Example live inside the Projects ▾ menu, so drop them from the cramped titlebar */
-    #btnLoadExample,#btnNewProject{display:none}
+    #btnLoadExample,#btnNewProject,#btnExportJson,#btnImport{display:none}
     .toolbar{flex-wrap:nowrap;overflow-x:auto;gap:8px;padding:8px 10px;height:auto;flex:0 0 auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
     .toolbar::-webkit-scrollbar{display:none}
     .tb-eyebrow,.tb-sep,.zoomstate{display:none}
@@ -667,7 +667,7 @@
   <div class="titlebar">
     <div class="lights"><i></i><i></i><i></i></div>
     <div class="app-id">WE<b>A</b>VE</div>
-    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename this project">Untitled</span><span class="projacts"><button id="btnProjects" class="pjbtn" title="Open, switch or delete projects">☰ Projects ▾</button><button id="btnExport" class="pjbtn" title="Export this project as a Markdown file">⬇ Export</button><button id="btnLoadExample" class="pjbtn" title="Open one of the example graphs as an editable copy">⟳ Examples</button><button id="btnNewProject" class="pjbtn" title="Create a new blank project">＋ New</button></span></div>
+    <div class="vault"><span class="dot"></span><span id="projName" class="projname" title="Click to rename this project">Untitled</span><span class="projacts"><button id="btnProjects" class="pjbtn" title="Open, switch or delete projects">☰ Projects ▾</button><button id="btnExport" class="pjbtn" title="Export this project as a Markdown file">⬇ Export</button><button id="btnExportJson" class="pjbtn" title="Export a portable JSON bundle — back up this project or move it to another Weave">{ } JSON</button><button id="btnImport" class="pjbtn" title="Import a Weave JSON bundle as a new project">⬆ Import</button><button id="btnLoadExample" class="pjbtn" title="Open one of the example graphs as an editable copy">⟳ Examples</button><button id="btnNewProject" class="pjbtn" title="Create a new blank project">＋ New</button></span></div>
   </div>
 
   <div class="toolbar">
@@ -844,7 +844,13 @@ const WV = {
   setProject(id){ this.project = id || ''; try { if(id) localStorage.setItem('weave_project', id); else localStorage.removeItem('weave_project'); } catch(e){} },
   async graph(){ const r = await fetch('/api/graph', {headers:this.headers(), cache:'no-store'}); if(r.status===401) throw {code:401}; if(!r.ok) throw new Error('graph '+r.status); return r.json(); },
   async mutate(op, args){ const r = await fetch('/api/mutate', {method:'POST', headers:this.headers(), body:JSON.stringify(Object.assign({op}, args||{}))}); if(!r.ok){ const e = await r.json().catch(()=>({})); flash('save failed: '+(e.error||r.status)); throw new Error('mutate '+r.status); } return r.json(); },
-  async ai(body){ const r = await fetch('/api/ai', {method:'POST', headers:this.headers(), body:JSON.stringify(body)}); if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.error || ('ai '+r.status)); } return r.json(); },
+  async ai(body){
+    // BYOK: if the user has connected their own key, call their provider
+    // directly from the browser — no Weave server, no server secret. Otherwise
+    // fall back to the optional server proxy (/api/ai) if one is configured.
+    if (window.WeaveAI && window.WeaveAI.enabled()) return window.WeaveAI.call(body);
+    const r = await fetch('/api/ai', {method:'POST', headers:this.headers(), body:JSON.stringify(body)}); if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.error || ('ai '+r.status)); } return r.json();
+  },
   async projects(){ const r = await fetch('/api/projects', {headers:this.headers(), cache:'no-store'}); if(r.status===401) throw {code:401}; if(!r.ok) throw new Error('projects '+r.status); return r.json(); },
   async projectOp(op, args){ const r = await fetch('/api/projects', {method:'POST', headers:this.headers(), body:JSON.stringify(Object.assign({op}, args||{}))}); if(!r.ok){ const e = await r.json().catch(()=>({})); flash('project failed: '+(e.error||r.status)); throw new Error('projectOp '+r.status); } return r.json(); },
 };
@@ -1500,7 +1506,8 @@ async function sendComposer(){
     const r=await WV.ai({action:'chat',messages:[{role:'system',content:sys},{role:'user',content:v}]});
     T.msgs[T.msgs.length-1]=['ai', r.reply || '(no reply)'];
   }catch(e){
-    T.msgs[T.msgs.length-1]=['ai','(offline — set OPENROUTER_API_KEY on the server to enable live replies)'];
+    T.msgs[T.msgs.length-1]=['ai','(AI is off — click “✦ AI” in the top bar to connect your own API key)'];
+    try{ if(window.WeaveAI && !window.WeaveAI.enabled()) window.WeaveAI.open(); }catch(_e){}
   }
   showThreadFor(sel); wrap=document.getElementById('th-thread'); if(wrap) wrap.scrollTop=wrap.scrollHeight;
 }
@@ -2047,6 +2054,47 @@ function exportMarkdown(){
   setTimeout(() => URL.revokeObjectURL(url), 1500);
   flash('Exported ' + base + '.md');
 }
+
+/* ---- portability: a round-trippable JSON bundle ----------------------------
+   Markdown export is for READING (an AI-readable context file). This is for
+   MOVING: raw rows, everything needed to rebuild the project on any other
+   Weave instance. Import always creates a NEW project, so nothing you already
+   have can be overwritten by a file. */
+async function exportJson(){
+  try{
+    const r = await fetch('/api/export', { headers: WV.headers(), cache:'no-store' });
+    if(!r.ok) throw new Error('export '+r.status);
+    const bundle = await r.json();
+    const base = (((bundle.project && bundle.project.name) || 'weave').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')) || 'weave';
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type:'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = base + '.weave.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+    flash('Exported ' + base + '.weave.json');
+  }catch(e){ flash('Export failed: ' + (e.message || e)); }
+}
+
+function importBundle(){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = async function(){
+    const f = inp.files && inp.files[0];
+    if(!f) return;
+    try{
+      const bundle = JSON.parse(await f.text());
+      if(bundle.weave !== 1 || !Array.isArray(bundle.nodes)) { flash('That is not a Weave JSON bundle.'); return; }
+      flash('Importing…');
+      const name = (((bundle.project && bundle.project.name) || 'Imported') + ' (imported)').slice(0,120);
+      const r = await WV.projectOp('create', { name: name, from:'blank' });
+      WV.setProject(r.id);
+      await WV.mutate('importVault', { bundle: bundle });
+      await reload();
+      flash('Imported ' + bundle.nodes.length + ' nodes as a new project.');
+    }catch(e){ flash('Import failed: ' + (e.message || e)); }
+  };
+  inp.click();
+}
 /* ---- example library: a picker of reference graphs, each opened as an editable copy ---- */
 const EXAMPLE_INFO = {
   'example':     { t:'Cut my food spending',  s:'The original — capture a mess, structure it, synthesize a plan.' },
@@ -2266,6 +2314,8 @@ function wireProjectBar(){
   const n = document.getElementById('projName'); if(n) n.addEventListener('click', doRename);
   const le = document.getElementById('btnLoadExample'); if(le) le.addEventListener('click', openExamplePicker);
   const ex = document.getElementById('btnExport'); if(ex) ex.addEventListener('click', exportMarkdown);
+  const exj = document.getElementById('btnExportJson'); if(exj) exj.addEventListener('click', exportJson);
+  const imp = document.getElementById('btnImport'); if(imp) imp.addEventListener('click', importBundle);
   const np = document.getElementById('btnNewProject'); if(np) np.addEventListener('click', doNewProject);
   const pj = document.getElementById('btnProjects'); if(pj) pj.addEventListener('click', ev => { ev.stopPropagation(); const m = document.getElementById('projMenu'); if(m && m.classList.contains('on')) closeProjectMenu(); else openProjectMenu(); });
 }
@@ -2960,6 +3010,660 @@ async function boot(){
   if(window.__reheat){ window.__reheat(0.9); }
 }
 boot();
+</script>
+<script>
+/* ============================================================================
+   Weave BYOK — client-side AI (no server secret required)
+   The user's API key lives ONLY in this browser (localStorage) and is sent
+   DIRECTLY to their chosen provider. It never touches any Weave server.
+   No key => AI is off. If no client key is set, WV.ai falls back to the
+   optional server proxy at /api/ai (for self-hosters who prefer that).
+   Prompt contracts below mirror functions/api/ai.js 1:1.
+   ========================================================================== */
+(function(){
+  const LS = { key:'weave_ai_key', model:'weave_ai_model', base:'weave_ai_base' };
+  const DEFAULT_BASE  = 'https://openrouter.ai/api/v1';
+  const DEFAULT_MODEL = 'deepseek/deepseek-v4-pro';
+  function _get(k,d){ try{ const v=localStorage.getItem(k); return (v===null||v==='')?d:v; }catch(e){ return d; } }
+  const cfg = {
+    get key(){ return _get(LS.key,''); },
+    get model(){ return _get(LS.model, DEFAULT_MODEL); },
+    get base(){ return String(_get(LS.base, DEFAULT_BASE)||DEFAULT_BASE).replace(/\/+$/,''); },
+  };
+
+  /* ---- ported prompt contracts (verbatim from functions/api/ai.js) ---- */
+  const SYNTH_SYSTEM = `You are Weave's synthesis partner. Weave is a reasoning graph of typed nodes.
+The create vector is divergent: a synthesis fuses several seeds into one novel whole.
+Combine the given seeds — and ONLY those — into a single synthesis. Cite which seed
+contributes what. Place it honestly on the novel x feasible frame; never dress a
+research bet as a breakthrough. Surface any constraint it INHERITS from its parents or
+their couplings; do not hide it. Introduce no facts not derivable from the inputs.`;
+  const SYNTH_JSON_HINT = `Return ONLY a single JSON object — no prose, no markdown fences — with exactly these keys:
+"title" (string), "distillate" (string), "confidence" (number 0..1),
+"placement" (one of "breakthrough","research-bet","just-execution","discard"),
+"novel" (string), "feasible" (string),
+"combined_from" (array of objects each {"id": string, "contribution": string}),
+"inherited_gap" (object {"ref": string|null, "text": string} or null),
+"body" (string).`;
+  const SYNTH_SCHEMA = { type:"object", additionalProperties:false,
+    required:["title","distillate","confidence","placement","novel","feasible","combined_from","body"],
+    properties:{ title:{type:"string"}, distillate:{type:"string"}, confidence:{type:"number"},
+      placement:{type:"string", enum:["breakthrough","research-bet","just-execution","discard"]},
+      novel:{type:"string"}, feasible:{type:"string"},
+      combined_from:{ type:"array", items:{ type:"object", additionalProperties:false, required:["id","contribution"],
+        properties:{ id:{type:"string"}, contribution:{type:"string"} } } },
+      inherited_gap:{ type:["object","null"], additionalProperties:false,
+        properties:{ ref:{type:["string","null"]}, text:{type:"string"} } },
+      body:{type:"string"} } };
+
+  const DISTILL_SYSTEM = `You are Weave's distillation partner. A node's distillate is the single settled
+one-line claim it has earned — the most compressed TRUE statement its own notes, its
+dimensions (facets), and its neighbours support.
+You are given: the node (kind, title, body, current_distillate); its facets; its
+neighbours — each with "rel" and "dir" ("out" = this node points to it, "in" = it points
+to this node); and any inherited blocking gaps.
+Write ONE line (max ~25 words). If the node is RESOLVED — the answer has landed — state the
+settled claim plainly. If it is UNRESOLVED — options still compete, no answer is chosen, or a
+blocking gap is open — phrase the line as an explicit OPEN STATUS naming the unsettled
+decision (e.g. "Open: push vs pull delivery is unsettled"), NOT as an imperative or a to-do
+(never write "must be defined" / "needs to be").
+Always return a numeric confidence in 0..1, calibrated: unresolved/open nodes → 0.30 or below;
+reserve above 0.70 for claims corroborated by several neighbours and facets. Never default to
+0.5 — commit to a real number.
+In grounded_in, name the specific inputs that justify the line (sources like "body",
+"facet:<name>", or "node:<id>"). If a blocking gap is inherited and unresolved, do NOT claim
+it is solved — state that limitation in caveat. Introduce no facts not present in the inputs.`;
+  const DISTILL_JSON_HINT = `Return ONLY a single JSON object — no prose, no markdown fences — with exactly these keys:
+"distillate" (string), "confidence" (number 0..1),
+"grounded_in" (array of objects each {"source": string, "note": string|null}),
+"caveat" (string or null).`;
+  const DISTILL_SCHEMA = { type:"object", additionalProperties:false,
+    required:["distillate","confidence","grounded_in"],
+    properties:{ distillate:{type:"string"}, confidence:{type:"number"},
+      grounded_in:{ type:"array", items:{ type:"object", additionalProperties:false, required:["source"],
+        properties:{ source:{type:"string"}, note:{type:["string","null"]} } } },
+      caveat:{type:["string","null"]} } };
+
+  const SUGGEST_KIND_SYSTEM = `You are Weave's node classifier. Weave has six node kinds, defined by their ROLE
+in an argument, not their wording:
+- problem: a question or goal to resolve (where the solve side starts)
+- hypothesis: a claim that might be true, or an approach you are asserting — something attackable
+- solution: the concrete method that realises or answers a hypothesis
+- seed: a loose idea with no problem attached yet (where the create side starts)
+- synthesis: several ideas fused into one new whole
+- gap: a blocker — an external wall that blocks a hypothesis or solution
+A node's kind is decided MORE by its role (its edges) than by its title. You are given the
+node's title, body, current_kind, and its neighbours — each with "rel" and "dir" ("out" =
+this node points to it, "in" = it points to this node).
+Rank the 1-2 most likely kinds. Each reason must be VERY SHORT — a fragment of at most ~8
+words, NOT a sentence (e.g. "asserted claim, attackable" or "method that answers a problem").
+If two kinds are genuinely plausible, include both and pose ONE short disambiguating question
+(max ~14 words). Prefer structure over surface phrasing — never call something a solution just
+because it is an action phrase, or a gap just because it sounds negative. Order candidates best-first.`;
+  const SUGGEST_KIND_JSON_HINT = `Return ONLY a JSON object with keys:
+"candidates" (array, best first, 1-2 items, each {"kind": one of "problem"|"hypothesis"|"solution"|"seed"|"synthesis"|"gap", "reason": a terse fragment of at most ~8 words, "confidence": number 0..1}),
+"question" (one short disambiguating question, max ~14 words, or null if the kind is clear).`;
+  const SUGGEST_KIND_SCHEMA = { type:"object", additionalProperties:false, required:["candidates"],
+    properties:{ candidates:{ type:"array", items:{ type:"object", additionalProperties:false, required:["kind","reason"],
+      properties:{ kind:{type:"string", enum:["problem","hypothesis","solution","seed","synthesis","gap"]},
+        reason:{type:"string"}, confidence:{type:["number","null"]} } } },
+      question:{type:["string","null"]} } };
+
+  const ASSIST_BASE = `You are Weave's reasoning assistant working on ONE selected node in a reasoning graph.
+You are given the node (title, kind, body) and its neighbours (each with rel + dir: "out" = node points to
+it, "in" = it points to node). Weave kinds: problem, hypothesis, solution, seed, synthesis, gap (a gap is an
+external blocker). Return concrete, specific items grounded in the node and its neighbours — no filler and no
+facts not derivable from the inputs.
+LENGTH IS STRICT — these render on small cards, so be terse:
+- title: a LABEL, not a sentence. Max 7 words. No trailing period.
+- note: at most ONE short clause, max 12 words. Never two sentences. Omit rather than pad.
+- summary: max 10 words, or null.
+Write like a sticky note, not prose.`;
+  const ASSIST_MODES = {
+    refute: `MODE refute: give the 1-3 STRONGEST gaps that could refute the node — the tests it most likely fails
+if false. Severe, specific, checkable. title = the blocker (≤7 words); note = why it bites (≤12 words).`,
+    decompose: `MODE decompose: break the node into the 2-4 sub-claims (premises) it rests on, each separately
+testable. title = the sub-claim (≤7 words); note = its role (≤12 words).`,
+    constrain: `MODE constrain: propose 1-3 dimensions to weigh the node on — e.g. cost, time, grid capacity,
+payload. title = dimension name (1-2 lowercase words); semantic = "gating"|"accumulative"|"informational";
+note = what it measures here (≤12 words).`,
+    find_missing: `MODE find_missing: audit the node and its neighbours; name 1-4 things MISSING — a claim with no
+gap/attack, a claim with no data, an unaddressed factor, an unstated assumption. title = the missing piece
+(≤7 words); note = why it matters (≤12 words). Invent no facts.`,
+    spark: `MODE spark: propose 2-4 fresh ideas sparked by the node — new seeds. title = the idea (≤7 words);
+note = the angle (≤12 words).`,
+    diverge: `MODE diverge: propose 2-4 divergent variations that branch away. title = the variation (≤7 words);
+note = how it differs (≤12 words).`,
+  };
+  const ASSIST_JSON_HINT = `Return ONLY a JSON object: {"items": array of {"title": ≤7-word label, "note": ≤12-word
+clause or null, "semantic": (constrain only) "gating"|"accumulative"|"informational" or null}, "summary": ≤10-word
+line or null}. Terse. No sentences longer than the limits.`;
+  const ASSIST_SCHEMA = { type:"object", additionalProperties:false, required:["items"],
+    properties:{ items:{ type:"array", items:{ type:"object", additionalProperties:false, required:["title"],
+      properties:{ title:{type:"string"}, note:{type:["string","null"]}, semantic:{type:["string","null"]} } } },
+      summary:{type:["string","null"]} } };
+
+  function extractJson(s){
+    if(!s) return null;
+    let t = String(s).trim();
+    const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if(fence) t = fence[1].trim();
+    const a = t.indexOf("{"), b = t.lastIndexOf("}");
+    if(a===-1 || b===-1 || b<a) return null;
+    try{ return JSON.parse(t.slice(a,b+1)); }catch(e){ return null; }
+  }
+
+  async function callProvider(payload){
+    const r = await fetch(cfg.base + '/chat/completions', {
+      method:'POST',
+      headers:{ 'Authorization':'Bearer '+cfg.key, 'Content-Type':'application/json',
+                'HTTP-Referer': location.origin, 'X-Title':'Weave' },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(()=>({}));
+    return { ok:r.ok, status:r.status, data };
+  }
+  function errOf(res){ const e = res && res.data && res.data.error; return (e && (e.message||e)) || ('ai '+ (res?res.status:'error')); }
+  function contentOf(res){ const c = res.data && res.data.choices && res.data.choices[0] && res.data.choices[0].message; return c ? c.content : ''; }
+
+  async function structured(system, hint, schema, name, context){
+    const messages = [ {role:'system', content: system + "\n\n" + hint},
+                       {role:'user', content: JSON.stringify(context)} ];
+    let res = await callProvider({ model:cfg.model, messages,
+      response_format:{ type:'json_schema', json_schema:{ name, strict:true, schema } } });
+    if(!res.ok) res = await callProvider({ model:cfg.model, messages }); // fallback: plain generation
+    if(!res.ok) throw new Error(errOf(res));
+    const obj = extractJson(contentOf(res));
+    if(!obj) throw new Error('model did not return valid JSON');
+    return obj;
+  }
+
+  async function call(body){
+    const action = body.action;
+    if(action === 'synthesize'){
+      const p = await structured(SYNTH_SYSTEM, SYNTH_JSON_HINT, SYNTH_SCHEMA, 'synthesis', body.context);
+      const seedIds = new Set((((body.context||{}).seeds)||[]).map(s=>s.id));
+      p.combined_from = (p.combined_from||[]).filter(c=>seedIds.has(c.id));
+      return { proposal:p };
+    }
+    if(action === 'distill'){
+      return { proposal: await structured(DISTILL_SYSTEM, DISTILL_JSON_HINT, DISTILL_SCHEMA, 'distillate', body.context) };
+    }
+    if(action === 'suggest_kind'){
+      const o = await structured(SUGGEST_KIND_SYSTEM, SUGGEST_KIND_JSON_HINT, SUGGEST_KIND_SCHEMA, 'kind', body.context);
+      if(!Array.isArray(o.candidates)) throw new Error('model did not return valid JSON');
+      return o;
+    }
+    if(action === 'assist'){
+      const inst = ASSIST_MODES[body.mode];
+      if(!inst) throw new Error('unknown assist mode');
+      const o = await structured(ASSIST_BASE + "\n\n" + inst, ASSIST_JSON_HINT, ASSIST_SCHEMA, 'assist', body.context);
+      if(!Array.isArray(o.items)) throw new Error('model did not return valid JSON');
+      return o;
+    }
+    // chat / composer
+    const res = await callProvider({ model:cfg.model, messages: body.messages || [
+      {role:'system', content:'You are Weave, a concise thinking partner. Reply in 1-3 sentences that tighten a constraint or open a direction.'} ] });
+    if(!res.ok) throw new Error(errOf(res));
+    return { reply: contentOf(res) };
+  }
+
+  /* ---- settings panel ---- */
+  let _modal = null;
+  function buildModal(){
+    const ov = document.createElement('div');
+    ov.id = 'aiKeyModal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9800;display:none;align-items:center;justify-content:center;background:rgba(10,12,16,.5)';
+    ov.innerHTML = ''
+      + '<div style="width:440px;max-width:calc(100vw - 28px);max-height:90vh;overflow:auto;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:14px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:Inter,system-ui,sans-serif">'
+      +   '<div style="display:flex;align-items:center;gap:8px"><div style="font-size:15px;font-weight:600;color:var(--ink,#111);flex:1;letter-spacing:-.3px">Connect your AI</div>'
+      +     '<button id="aiKeyClose" style="border:none;background:transparent;color:var(--mute,#999);font-size:16px;cursor:pointer;line-height:1">✕</button></div>'
+      +   '<div style="font-size:12px;color:var(--body,#555);line-height:1.55;margin:8px 0 4px">Your key is stored <b>only in this browser</b> and sent directly to your provider. It never touches any Weave server. No key = AI features are off.</div>'
+      +   '<label style="display:block;font-size:10px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.4px;text-transform:uppercase;color:var(--mute,#999);margin:14px 0 5px">API key</label>'
+      +   '<input id="aiKeyInput" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-v1-…" style="width:100%;box-sizing:border-box;background:var(--canvas,#fafafa);border:1px solid var(--hairline,#ddd);border-radius:7px;color:var(--ink,#111);padding:9px 11px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;outline:none">'
+      +   '<label style="display:block;font-size:10px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.4px;text-transform:uppercase;color:var(--mute,#999);margin:13px 0 5px">Model</label>'
+      +   '<input id="aiModelInput" type="text" spellcheck="false" style="width:100%;box-sizing:border-box;background:var(--canvas,#fafafa);border:1px solid var(--hairline,#ddd);border-radius:7px;color:var(--ink,#111);padding:9px 11px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;outline:none">'
+      +   '<label style="display:block;font-size:10px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.4px;text-transform:uppercase;color:var(--mute,#999);margin:13px 0 5px">Provider API base (OpenAI-compatible)</label>'
+      +   '<input id="aiBaseInput" type="text" spellcheck="false" style="width:100%;box-sizing:border-box;background:var(--canvas,#fafafa);border:1px solid var(--hairline,#ddd);border-radius:7px;color:var(--ink,#111);padding:9px 11px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;outline:none">'
+      +   '<div style="font-size:11px;color:var(--mute,#999);margin-top:7px;line-height:1.5">Default is OpenRouter — get a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" style="color:var(--solve,#003c33)">openrouter.ai/keys</a>. Any OpenAI-compatible endpoint works if it allows browser (CORS) requests.</div>'
+      +   '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">'
+      +     '<button id="aiKeyClear" style="background:transparent;border:1px solid var(--hairline,#ddd);color:var(--body,#444);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer;font-family:Inter,sans-serif">Turn AI off</button>'
+      +     '<button id="aiKeySave" style="background:var(--ink,#141414);color:var(--page,#fff);border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;font-family:Inter,sans-serif">Save</button>'
+      +   '</div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', e=>{ if(e.target===ov) hide(); });
+    ov.querySelector('#aiKeyClose').onclick = hide;
+    ov.querySelector('#aiKeySave').onclick = function(){
+      const k = ov.querySelector('#aiKeyInput').value.trim();
+      const m = ov.querySelector('#aiModelInput').value.trim();
+      const b = ov.querySelector('#aiBaseInput').value.trim();
+      try{
+        if(k) localStorage.setItem(LS.key,k); else localStorage.removeItem(LS.key);
+        if(m) localStorage.setItem(LS.model,m); else localStorage.removeItem(LS.model);
+        if(b) localStorage.setItem(LS.base,b); else localStorage.removeItem(LS.base);
+      }catch(e){}
+      refreshBtn();
+      try{ flash(k ? 'AI connected — running on your key' : 'AI turned off'); }catch(e){}
+      hide();
+    };
+    ov.querySelector('#aiKeyClear').onclick = function(){
+      try{ localStorage.removeItem(LS.key); }catch(e){}
+      ov.querySelector('#aiKeyInput').value='';
+      refreshBtn(); try{ flash('AI turned off'); }catch(e){}
+      hide();
+    };
+    return ov;
+  }
+  function show(){
+    if(!_modal) _modal = buildModal();
+    _modal.querySelector('#aiKeyInput').value = cfg.key;
+    _modal.querySelector('#aiModelInput').value = cfg.model;
+    _modal.querySelector('#aiBaseInput').value = cfg.base;
+    _modal.style.display = 'flex';
+  }
+  function hide(){ if(_modal) _modal.style.display='none'; }
+
+  function refreshBtn(){
+    const b = document.getElementById('aiKeyBtn');
+    if(!b) return;
+    const on = !!cfg.key;
+    b.textContent = on ? '✦ AI ✓' : '✦ AI';
+    b.style.color = on ? 'var(--solve,#003c33)' : '';
+    b.title = on ? 'AI connected (your key, this browser only) — click to manage' : 'Connect your AI key (stored only in this browser)';
+  }
+  function mountButton(){
+    if(document.getElementById('aiKeyBtn')) return;
+    const b = document.createElement('button');
+    b.id = 'aiKeyBtn'; b.className = 'themebtn'; b.textContent = '✦ AI';
+    b.onclick = show;
+    const tb = document.querySelector('.tb-right');
+    if(tb) tb.insertBefore(b, tb.firstChild);
+    else { b.style.cssText='position:fixed;bottom:16px;right:16px;z-index:9999;padding:8px 11px;border-radius:6px;border:1px solid var(--hairline,#ddd);background:var(--canvas,#fff);cursor:pointer'; document.body.appendChild(b); }
+    refreshBtn();
+  }
+
+  window.WeaveAI = { enabled(){ return !!cfg.key; }, call, open:show, config:cfg };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountButton);
+  else mountButton();
+})();
+</script>
+<script>
+/* ============================================================================
+   Weave Local — the local-first storage engine.
+   The graph lives on THIS DEVICE (IndexedDB). No account, no server, no
+   database to provision: Weave can run as a plain static page, and the public
+   demo therefore holds nobody's data.
+
+   Cloudflare + D1 remains an OPTIONAL backend for a hosted, multi-device
+   instance. WV routes to whichever is active:
+     - explicit user choice (localStorage 'weave_storage'), else
+     - auto: if /api/graph answers, use the server (so existing D1 deployments
+       keep working untouched); otherwise fall back to local.
+   Both backends produce an identical graph shape — derive() below is the same
+   pure function the server runs in functions/_lib/derive.js.
+   ========================================================================== */
+(function(){
+  /* ---------------- derive: raw rows -> the graph the UI consumes ----------
+     Ported verbatim from functions/_lib/derive.js so local and server agree. */
+  const REL = {
+    decomposes: { plane:"structural", vector:"solve",   directed:true },
+    answers:    { plane:"structural", vector:"solve",   directed:true },
+    blocks:     { plane:"structural", vector:"solve",   directed:true },
+    sparks:     { plane:"structural", vector:"create",  directed:true },
+    combines:   { plane:"structural", vector:"create",  directed:true },
+    refines:    { plane:"structural", vector:"neutral", directed:true },
+    contains:   { plane:"structural", vector:"neutral", directed:true },
+    shares:     { plane:"dimensional", vector:"neutral", directed:false },
+    drives:     { plane:"dimensional", vector:"solve",  directed:true },
+    "depends-on": { plane:"dimensional", vector:"neutral", directed:true },
+    constrains: { plane:"dimensional", vector:"solve",  directed:true },
+  };
+  const GENERATIVE = new Set(["decomposes","answers","combines","sparks","refines"]);
+  const KINDSET = new Set(["problem","hypothesis","solution","seed","synthesis","gap"]);
+
+  function derive(nodeRows, facetRows, edgeRows, captureRows){
+    const facetsByNode = {};
+    for(const f of facetRows){
+      (facetsByNode[f.node_id] || (facetsByNode[f.node_id] = [])).push({
+        name:f.name, semantic:f.semantic,
+        distillate:f.distillate != null ? f.distillate : null,
+        confidence:f.confidence != null ? f.confidence : null,
+      });
+    }
+    const byId = new Map(nodeRows.map(n => [n.id, n]));
+    const structural = [], dimensional = [];
+    for(const e of edgeRows){
+      const rt = REL[e.rel]; if(!rt) continue;
+      if(rt.plane === "structural"){
+        structural.push({ src:e.src, to:e.to_id, rel:e.rel, vector:rt.vector, note:e.note != null ? e.note : null });
+      } else {
+        dimensional.push({ src:e.src, from:e.from_facet != null ? e.from_facet : null,
+          to_id:e.to_id, to_facet:e.to_facet != null ? e.to_facet : null,
+          rel:e.rel, note:e.note != null ? e.note : null });
+      }
+    }
+    const ideas = nodeRows.filter(n => KINDSET.has(n.kind));
+    const ideaIds = new Set(ideas.map(n => n.id));
+    const eff = {};
+    for(const n of ideas) eff[n.id] = (n.lean && n.lean !== "inherit") ? n.lean : n.region;
+    const genChildren = {};
+    for(const e of structural){
+      if(GENERATIVE.has(e.rel) && ideaIds.has(e.src) && ideaIds.has(e.to)){
+        (genChildren[e.src] || (genChildren[e.src] = [])).push(e.to);
+      }
+    }
+    for(const n of ideas){
+      if(n.lean && n.lean !== "inherit"){
+        const q = (genChildren[n.id] || []).slice();
+        while(q.length){
+          const c = q.shift(); const child = byId.get(c);
+          if(child && (!child.lean || child.lean === "inherit") && eff[c] !== n.lean){
+            eff[c] = n.lean; q.push.apply(q, genChildren[c] || []);
+          }
+        }
+      }
+    }
+    const foldMap = new Map();
+    for(const e of dimensional){
+      const pair = [e.src, e.to_id].sort(); const key = pair.join("");
+      const cur = foldMap.get(key) || { a:pair[0], b:pair[1], count:0, note:e.note };
+      cur.count++; foldMap.set(key, cur);
+    }
+    const folds = [...foldMap.values()];
+    const byFacet = {};
+    for(const f of facetRows) (byFacet[f.name] || (byFacet[f.name] = new Set())).add(f.node_id);
+    const shares = new Set(dimensional.filter(e => e.rel === "shares").map(e => [e.src, e.to_id].sort().join("")));
+    const couplings = [];
+    for(const facet of Object.keys(byFacet)){
+      const arr = [...byFacet[facet]].sort();
+      for(let i=0;i<arr.length;i++) for(let j=i+1;j<arr.length;j++)
+        couplings.push({ facet, a:arr[i], b:arr[j], wired: shares.has([arr[i],arr[j]].sort().join("")) });
+    }
+    const scout = [];
+    for(const n of ideas){
+      if(n.kind === "solution"){
+        const answered = structural.some(e => e.rel === "answers" && e.to === n.id);
+        const blocked  = structural.some(e => e.rel === "blocks"  && e.to === n.id);
+        if(answered && blocked) scout.push(n.id);
+      }
+    }
+    const nodes = ideas.map(n => ({
+      id:n.id, kind:n.kind, region:n.region, lean:eff[n.id] || n.region, state:n.state,
+      title:n.title || n.id, freeform:n.state === "freeform",
+      distillate:n.distillate_text != null ? n.distillate_text : null,
+      confidence:n.distillate_confidence != null ? n.distillate_confidence : null,
+      facets:facetsByNode[n.id] || [], body:n.body || "",
+    }));
+    const captures = (captureRows || []).map(c => ({ id:c.id, t:c.text }));
+    return { nodes, structural, dimensional, folds, couplings, scout, captures, errors:[] };
+  }
+
+  /* ---------------- IndexedDB: one document per project ------------------ */
+  const DB_NAME = 'weave-local', STORE = 'projects', DB_VER = 1;
+  let _db = null;
+  function open(){
+    if(_db) return Promise.resolve(_db);
+    return new Promise((res, rej) => {
+      const r = indexedDB.open(DB_NAME, DB_VER);
+      r.onupgradeneeded = () => { const d = r.result; if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath:'id' }); };
+      r.onsuccess = () => { _db = r.result; res(_db); };
+      r.onerror = () => rej(r.error);
+    });
+  }
+  function tx(mode, fn){
+    return open().then(d => new Promise((res, rej) => {
+      const t = d.transaction(STORE, mode), s = t.objectStore(STORE);
+      let out; try { out = fn(s); } catch(e){ rej(e); return; }
+      t.oncomplete = () => res(out && out.__req ? out.__req.result : out);
+      t.onerror = () => rej(t.error);
+    }));
+  }
+  const getDoc  = id => tx('readonly',  s => ({ __req: s.get(id) }));
+  const allDocs = () => tx('readonly',  s => ({ __req: s.getAll() }));
+  const putDoc  = d  => tx('readwrite', s => { s.put(d); return d; });
+  const delDoc  = id => tx('readwrite', s => { s.delete(id); return true; });
+
+  const now = () => new Date().toISOString();
+  const blank = (id, name) => ({ id, name: name || 'My project', created: now(), nodes:[], facets:[], edges:[], captures:[], seq:1 });
+
+  async function load(id){
+    const pid = id || 'default';
+    let d = await getDoc(pid);
+    if(!d){ d = blank(pid, pid === 'default' ? 'My project' : 'Untitled'); await putDoc(d); }
+    return d;
+  }
+
+  /* ---------------- ops: the same semantics as functions/api/mutate.js --- */
+  function applyOp(d, op, a){
+    const nodes = d.nodes, facets = d.facets, edges = d.edges, captures = d.captures;
+    const findNode = id => nodes.find(n => n.id === id);
+    switch(op){
+      case 'upsertNode': {
+        const n = a.node; if(!n || !n.id) throw new Error('bad node');
+        const dist = n.distillate || null;
+        const row = {
+          id:n.id, kind:n.kind != null ? n.kind : null, state:n.state || 'freeform',
+          region:n.region != null ? n.region : null, lean:n.lean || 'inherit',
+          cluster:n.cluster != null ? n.cluster : null, title:n.title != null ? n.title : null,
+          distillate_text: dist && dist.text != null ? dist.text : null,
+          distillate_confidence: dist && dist.confidence != null ? dist.confidence : null,
+          distillate_updated: dist ? now() : null,
+          body:n.body != null ? n.body : '', created:n.created || now(), updated:now(),
+        };
+        const i = nodes.findIndex(x => x.id === n.id);
+        if(i === -1) nodes.push(row);
+        else nodes[i] = Object.assign({}, nodes[i], row, { created: nodes[i].created });
+        if(Array.isArray(n.facets)) for(const f of n.facets){
+          const j = facets.findIndex(x => x.node_id === n.id && x.name === f.name);
+          const frow = { node_id:n.id, name:f.name, semantic:f.semantic != null ? f.semantic : null,
+            distillate:f.distillate != null ? f.distillate : null, confidence:f.confidence != null ? f.confidence : null };
+          if(j === -1) facets.push(frow); else facets[j] = frow;
+        }
+        return;
+      }
+      case 'deleteNode':
+        d.nodes = nodes.filter(n => n.id !== a.id);
+        d.facets = facets.filter(f => f.node_id !== a.id);
+        d.edges = edges.filter(e => e.src !== a.id && e.to_id !== a.id);
+        return;
+      case 'addEdge':
+        edges.push({ _id:d.seq++, src:a.src, from_facet:a.from != null ? a.from : null,
+          to_id:a.to_id, to_facet:a.to_facet != null ? a.to_facet : null, rel:a.rel, note:a.note != null ? a.note : null });
+        return;
+      case 'deleteEdge':
+        d.edges = edges.filter(e => String(e._id) !== String(a.id));
+        return;
+      case 'deleteEdgeMatch':
+        d.edges = edges.filter(e => !(e.src === a.src && e.to_id === a.to_id && e.rel === a.rel));
+        return;
+      case 'addFacet': {
+        const j = facets.findIndex(x => x.node_id === a.node_id && x.name === a.name);
+        const row = { node_id:a.node_id, name:a.name, semantic:a.semantic || 'informational',
+          distillate:a.distillate != null ? a.distillate : null, confidence:a.confidence != null ? a.confidence : null };
+        if(j === -1) facets.push(row); else facets[j].semantic = row.semantic;
+        return;
+      }
+      case 'addCapture': {
+        const j = captures.findIndex(c => c.id === a.id);
+        const row = { id:a.id, text:a.text, created:now() };
+        if(j === -1) captures.push(row); else captures[j] = row;
+        return;
+      }
+      case 'deleteCapture':
+        d.captures = captures.filter(c => c.id !== a.id);
+        return;
+      case 'promote':
+        d.captures = captures.filter(c => c.id !== a.captureId);
+        applyOp(d, 'upsertNode', { node:a.node });
+        return;
+      case 'renameNode': {
+        const n = findNode(a.id); if(n){ n.title = a.title != null ? a.title : null; n.updated = now(); }
+        return;
+      }
+      case 'editNode': {
+        const n = findNode(a.id); if(!n) return;
+        n.title = a.title != null ? a.title : null;
+        n.kind = a.kind != null ? a.kind : null;
+        n.region = a.region != null ? a.region : null;
+        n.state = a.state || 'freeform';
+        n.distillate_text = a.distillate != null ? a.distillate : null;
+        n.distillate_confidence = a.confidence != null ? a.confidence : null;
+        n.distillate_updated = a.distillate ? now() : null;
+        n.body = a.body != null ? a.body : null;
+        n.updated = now();
+        return;
+      }
+      case 'changeKind': {
+        const n = findNode(a.id); if(n){ n.kind = a.kind; n.region = a.region != null ? a.region : null; n.updated = now(); }
+        return;
+      }
+      case 'renameProject':
+        d.name = a.name || 'Untitled';
+        return;
+      case 'clearVault':
+        d.nodes = []; d.facets = []; d.edges = []; d.captures = [];
+        if(a.name) d.name = a.name;
+        return;
+      case 'importVault': {
+        const b = a.bundle || {};
+        if(b.weave !== 1) throw new Error('not a Weave bundle');
+        d.nodes = (b.nodes || []).filter(n => n && n.id).map(n => Object.assign({}, n));
+        d.facets = (b.facets || []).filter(f => f && f.node_id && f.name).map(f => Object.assign({}, f));
+        d.edges = (b.edges || []).filter(e => e && e.src && e.to_id && e.rel).map(e => Object.assign({ _id:d.seq++ }, e));
+        d.captures = (b.captures || []).filter(c => c && c.id).map(c => Object.assign({}, c));
+        if(b.project && b.project.name) d.name = String(b.project.name).slice(0,120);
+        return;
+      }
+      case 'loadExample':
+        throw new Error('Examples need the hosted version — switch storage to Server, or import a .weave.json bundle.');
+      default:
+        throw new Error('unknown op: ' + op);
+    }
+  }
+
+  const Local = {
+    async graph(projectId){
+      const d = await load(projectId);
+      const g = derive(d.nodes, d.facets, d.edges, d.captures);
+      g.project = { id:d.id, name:d.name };
+      return g;
+    },
+    async mutate(projectId, op, args){
+      const d = await load(projectId);
+      applyOp(d, op, args || {});
+      await putDoc(d);
+      return Local.graph(d.id);
+    },
+    async projects(){
+      const all = await allDocs();
+      if(!all.length){ const d = blank('default'); await putDoc(d); all.push(d); }
+      const projects = all.map(d => ({ id:d.id, name:d.name, created:d.created }))
+        .sort((x,y) => String(y.created).localeCompare(String(x.created)));
+      return { projects, examples: [] };
+    },
+    async projectOp(op, args){
+      const a = args || {};
+      if(op === 'create'){
+        const id = 'p' + Math.random().toString(36).slice(2,9);
+        const d = blank(id, (a.name || 'Untitled').toString().slice(0,120));
+        await putDoc(d);
+        return Object.assign({ id, name:d.name }, await Local.projects());
+      }
+      if(op === 'rename'){
+        const d = await load(a.id); d.name = (a.name || 'Untitled').toString().slice(0,120);
+        await putDoc(d); return await Local.projects();
+      }
+      if(op === 'delete'){
+        if(a.id === 'default') throw new Error('cannot delete this project');
+        await delDoc(a.id); return await Local.projects();
+      }
+      throw new Error('unknown op: ' + op);
+    },
+    async exportBundle(projectId){
+      const d = await load(projectId);
+      const strip = o => { const c = Object.assign({}, o); delete c._id; return c; };
+      return { weave:1, exported:now(), project:{ name:d.name },
+        nodes:d.nodes.map(strip), facets:d.facets.map(strip),
+        edges:d.edges.map(strip), captures:d.captures.map(strip) };
+    },
+  };
+
+  /* ---------------- mode: local vs server -------------------------------- */
+  const KEY = 'weave_storage';
+  let _mode = null;
+  function stored(){ try { return localStorage.getItem(KEY) || ''; } catch(e){ return ''; } }
+  async function mode(){
+    if(_mode) return _mode;
+    const s = stored();
+    if(s === 'local' || s === 'server'){ _mode = s; return _mode; }
+    // No explicit choice: use the server only if this deployment actually has one,
+    // so existing D1 instances keep working and a static page falls back to local.
+    try {
+      const r = await fetch('/api/graph', { headers:WV.headers(), cache:'no-store' });
+      _mode = r.ok ? 'server' : 'local';
+    } catch(e){ _mode = 'local'; }
+    return _mode;
+  }
+  function setMode(m){
+    _mode = m; try { localStorage.setItem(KEY, m); } catch(e){}
+    paintBtn();
+  }
+
+  const srv = { graph:WV.graph.bind(WV), mutate:WV.mutate.bind(WV), projects:WV.projects.bind(WV), projectOp:WV.projectOp.bind(WV) };
+  WV.graph     = async function(){ return (await mode()) === 'local' ? Local.graph(WV.project || 'default') : srv.graph(); };
+  WV.mutate    = async function(op, args){ return (await mode()) === 'local' ? Local.mutate(WV.project || 'default', op, args) : srv.mutate(op, args); };
+  WV.projects  = async function(){ return (await mode()) === 'local' ? Local.projects() : srv.projects(); };
+  WV.projectOp = async function(op, args){ return (await mode()) === 'local' ? Local.projectOp(op, args) : srv.projectOp(op, args); };
+
+  // Export must follow the active backend too.
+  const serverExport = window.exportJson;
+  window.exportJson = async function(){
+    if((await mode()) !== 'local') return serverExport.apply(null, arguments);
+    try{
+      const bundle = await Local.exportBundle(WV.project || 'default');
+      const base = ((bundle.project.name || 'weave').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')) || 'weave';
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type:'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = base + '.weave.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      flash('Exported ' + base + '.weave.json');
+    }catch(e){ flash('Export failed: ' + (e.message || e)); }
+  };
+
+  /* ---------------- storage indicator / switch --------------------------- */
+  function paintBtn(){
+    const b = document.getElementById('btnStorage'); if(!b) return;
+    const local = _mode !== 'server';
+    b.textContent = local ? '⛁ On this device' : '⛁ Server';
+    b.title = local
+      ? 'Your graph is stored on this device only. Click to switch to this deployment’s server database.'
+      : 'Your graph is stored in this deployment’s database. Click to switch to device-only storage.';
+  }
+  async function mountBtn(){
+    if(document.getElementById('btnStorage')) return;
+    const host = document.querySelector('.projacts'); if(!host) return;
+    const b = document.createElement('button');
+    b.id = 'btnStorage'; b.className = 'pjbtn';
+    b.onclick = async function(){
+      const cur = await mode();
+      const next = cur === 'local' ? 'server' : 'local';
+      if(!confirm(next === 'server'
+        ? 'Switch to the server database?\n\nYour device-stored projects stay on this device — they are not uploaded. You can switch back anytime.'
+        : 'Switch to device-only storage?\n\nYour server projects stay on the server — they are not deleted. Export a .weave.json first if you want to bring one across.')) return;
+      setMode(next);
+      try { await reload(); } catch(e){}
+      flash(next === 'local' ? 'Storage: this device' : 'Storage: server');
+    };
+    host.appendChild(b);
+    await mode(); paintBtn();
+  }
+
+  window.WeaveLocal = { engine:Local, derive, mode, setMode };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBtn);
+  else mountBtn();
+})();
 </script>
 </body>
 </html>
