@@ -1,0 +1,325 @@
+{
+ "weave": 1,
+ "exported": "2026-09-18T00:00:00.000Z",
+ "project": {
+  "name": "Cut my food spending (example)"
+ },
+ "nodes": [
+  {
+   "id": "cook-club",
+   "kind": "seed",
+   "state": "distilled",
+   "region": "create",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "Make cooking a shared thing",
+   "distillate_text": "Reframe from 'me cooking cheaply' to 'a few of us cooking together' — unlocks bulk without a car each.",
+   "distillate_confidence": 0.68,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "What if cooking cheaply isn't a solo chore but something a few neighbors do together?",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "cook-more-home",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "Cook most dinners at home",
+   "distillate_text": "Home dinners could halve the eating-out line — if I can keep it up on busy nights.",
+   "distillate_confidence": 0.6,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "Eating out is the leak. What if most weeknights were home-cooked instead?",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "cut-food-spend",
+   "kind": "problem",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "Cut my food spending by 30%",
+   "distillate_text": "Eating out is the biggest leak; the fix is cooking more at home plus smarter shopping.",
+   "distillate_confidence": 0.74,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "Where does the money actually go — groceries, eating out, or food that spoils?",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "neighborhood-supper",
+   "kind": "synthesis",
+   "state": "distilled",
+   "region": "create",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "A neighborhood supper club",
+   "distillate_text": "A few homes bulk-buy together, batch-cook, and split meals — cheaper food and less cooking for everyone.",
+   "distillate_confidence": 0.61,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "The fusion: pool the shopping, share the cooking, split the meals — cheaper and less work than going it alone.",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "no-bulk-access",
+   "kind": "gap",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "create",
+   "cluster": "home",
+   "title": "No easy way to buy in bulk",
+   "distillate_text": "Flipped: the missing bulk access isn't a wall — it's the reason to team up with others.",
+   "distillate_confidence": 0.5,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "The cheap bulk store is 40 minutes away and I have no car — bulk saving is real but I can't reach it alone.\n\n**Flipped.** Who else near me wants bulk groceries? What does sharing the trip unlock?",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "share-a-fridge",
+   "kind": "seed",
+   "state": "distilled",
+   "region": "create",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "A shared bulk pantry",
+   "distillate_text": "A small shared pantry lets a few homes buy in bulk and draw down as they need it.",
+   "distillate_confidence": 0.52,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "Bulk only works if there's somewhere to keep it. A shared pantry solves storage for everyone.",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "skill-swap-dinners",
+   "kind": "seed",
+   "state": "freeform",
+   "region": "create",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "Trade dishes you're good at",
+   "distillate_text": null,
+   "distillate_confidence": null,
+   "distillate_updated": null,
+   "body": "Everyone can cook one thing well. Trade a portion of your specialty for someone else's. Just a spark for now.",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "smarter-shopping",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "Shop with a list, buy staples in bulk",
+   "distillate_text": "A fixed list kills impulse buys; bulk staples cut unit cost — needs discipline.",
+   "distillate_confidence": 0.64,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "Impulse buys and small packs quietly add up. A list plus bulk staples fixes both.",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "split-batches",
+   "kind": "seed",
+   "state": "distilled",
+   "region": "create",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "Cook double, split with a neighbor",
+   "distillate_text": "One big cook feeds two homes for barely more effort — halves both cost and cooking time.",
+   "distillate_confidence": 0.63,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "If I'm already batch-cooking, cooking double and splitting is almost free.",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  },
+  {
+   "id": "weeknight-system",
+   "kind": "solution",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "home",
+   "title": "Sunday batch-cook + a fixed grocery list",
+   "distillate_text": "Batch-cook on Sundays and shop one strict list — clears the 30%, if I can buy in bulk.",
+   "distillate_confidence": 0.62,
+   "distillate_updated": "2026-07-18T09:12:00+07:00",
+   "body": "Combine the two: cook once on Sunday, shop one disciplined list. What is still in the way?",
+   "created": "2026-07-18",
+   "updated": "2026-07-18T09:12:00+07:00"
+  }
+ ],
+ "facets": [
+  {
+   "node_id": "cook-club",
+   "name": "cost",
+   "semantic": "accumulative",
+   "distillate": "A group hits bulk pricing no one could alone — the same saving as the bulk store.",
+   "confidence": 0.6
+  },
+  {
+   "node_id": "cook-club",
+   "name": "access",
+   "semantic": "gating",
+   "distillate": "Someone has to organize the trip and the rota — the thing that makes or breaks it.",
+   "confidence": 0.45
+  },
+  {
+   "node_id": "cut-food-spend",
+   "name": "cost",
+   "semantic": "gating",
+   "distillate": "Eating out is ~40% of the total — the number every option is judged against.",
+   "confidence": 0.7
+  },
+  {
+   "node_id": "cut-food-spend",
+   "name": "time",
+   "semantic": "accumulative",
+   "distillate": "Only ~4 hours a week to cook — the real constraint.",
+   "confidence": 0.66
+  },
+  {
+   "node_id": "split-batches",
+   "name": "effort",
+   "semantic": "informational",
+   "distillate": "One person cooks once instead of two people cooking twice.",
+   "confidence": 0.55
+  }
+ ],
+ "edges": [
+  {
+   "src": "cook-club",
+   "from_facet": null,
+   "to_id": "split-batches",
+   "to_facet": null,
+   "rel": "sparks",
+   "note": null
+  },
+  {
+   "src": "cook-club",
+   "from_facet": null,
+   "to_id": "share-a-fridge",
+   "to_facet": null,
+   "rel": "sparks",
+   "note": null
+  },
+  {
+   "src": "cook-club",
+   "from_facet": null,
+   "to_id": "skill-swap-dinners",
+   "to_facet": null,
+   "rel": "sparks",
+   "note": null
+  },
+  {
+   "src": "cook-club",
+   "from_facet": "access",
+   "to_id": "no-bulk-access",
+   "to_facet": null,
+   "rel": "shares",
+   "note": "the same transport blocker, now shared"
+  },
+  {
+   "src": "cook-more-home",
+   "from_facet": null,
+   "to_id": "weeknight-system",
+   "to_facet": null,
+   "rel": "answers",
+   "note": null
+  },
+  {
+   "src": "cut-food-spend",
+   "from_facet": null,
+   "to_id": "cook-more-home",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "cut-food-spend",
+   "from_facet": null,
+   "to_id": "smarter-shopping",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "cut-food-spend",
+   "from_facet": "cost",
+   "to_id": "cook-club",
+   "to_facet": "cost",
+   "rel": "shares",
+   "note": "bulk pricing — two ways to get it"
+  },
+  {
+   "src": "cut-food-spend",
+   "from_facet": "time",
+   "to_id": "smarter-shopping",
+   "to_facet": null,
+   "rel": "drives",
+   "note": "the time limit pushes toward batch-shopping"
+  },
+  {
+   "src": "no-bulk-access",
+   "from_facet": null,
+   "to_id": "weeknight-system",
+   "to_facet": null,
+   "rel": "blocks",
+   "note": null
+  },
+  {
+   "src": "no-bulk-access",
+   "from_facet": null,
+   "to_id": "cook-club",
+   "to_facet": null,
+   "rel": "sparks",
+   "note": null
+  },
+  {
+   "src": "share-a-fridge",
+   "from_facet": null,
+   "to_id": "neighborhood-supper",
+   "to_facet": null,
+   "rel": "combines",
+   "note": null
+  },
+  {
+   "src": "skill-swap-dinners",
+   "from_facet": null,
+   "to_id": "neighborhood-supper",
+   "to_facet": null,
+   "rel": "combines",
+   "note": null
+  },
+  {
+   "src": "smarter-shopping",
+   "from_facet": null,
+   "to_id": "weeknight-system",
+   "to_facet": null,
+   "rel": "answers",
+   "note": null
+  },
+  {
+   "src": "split-batches",
+   "from_facet": null,
+   "to_id": "neighborhood-supper",
+   "to_facet": null,
+   "rel": "combines",
+   "note": null
+  }
+ ],
+ "captures": [
+  {
+   "id": "c-leftovers",
+   "text": "leftovers keep going bad — track them?",
+   "created": "2026-07-18"
+  }
+ ]
+}

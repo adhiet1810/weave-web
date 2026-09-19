@@ -1,0 +1,218 @@
+{
+ "weave": 1,
+ "exported": "2026-09-18T00:00:00.000Z",
+ "project": {
+  "name": "Always tired (example)"
+ },
+ "nodes": [
+  {
+   "id": "tr-caffeine",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Afternoon coffee wrecks the next day",
+   "distillate_text": "Cut it for three days — no change. This one is out.",
+   "distillate_confidence": 0.2,
+   "distillate_updated": "2026-07-20T14:00:00+07:00",
+   "body": "Predicts: no afternoon coffee = better mornings. Tested and disconfirmed.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  },
+  {
+   "id": "tr-coffee-test",
+   "kind": "gap",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Three days off afternoon coffee: no improvement",
+   "distillate_text": "A clean disconfirmation — the result the caffeine hypothesis predicted against.",
+   "distillate_confidence": 0.55,
+   "distillate_updated": "2026-07-20T14:00:00+07:00",
+   "body": "This is what a real test looks like: a blocker that a hypothesis cannot survive.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  },
+  {
+   "id": "tr-iron",
+   "kind": "hypothesis",
+   "state": "freeform",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Could it be low iron?",
+   "distillate_text": null,
+   "distillate_confidence": null,
+   "distillate_updated": null,
+   "body": "No position yet — an unknown to investigate, not a claim to defend. A blood test resolves it. Left open on purpose: its confidence is unset, and that is the honest state.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  },
+  {
+   "id": "tr-lunch",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Big carby lunches cause the crash",
+   "distillate_text": "Untested. A light-lunch week would isolate it — the next experiment to run.",
+   "distillate_confidence": 0.45,
+   "distillate_updated": "2026-07-20T14:00:00+07:00",
+   "body": "Plausible and checkable. Confidence stays middling until the experiment runs.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  },
+  {
+   "id": "tr-problem",
+   "kind": "problem",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Wiped out every afternoon by 2pm",
+   "distillate_text": "A daily 2–4pm crash. \"Tired\" is too vague to fix — break it into suspects and test them one at a time.",
+   "distillate_confidence": 0.7,
+   "distillate_updated": "2026-07-20T14:00:00+07:00",
+   "body": "The move is not to solve \"tiredness\" — it is to turn one fuzzy feeling into a few claims that each make a testable prediction.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  },
+  {
+   "id": "tr-screens",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Late screens push my sleep onset later",
+   "distillate_text": "Overlaps with sleep debt, so hard to isolate alone. Untested as a standalone cause.",
+   "distillate_confidence": 0.4,
+   "distillate_updated": "2026-07-20T14:00:00+07:00",
+   "body": "Note the entanglement: if this is true it may just be feeding sleep debt, not a separate cause.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  },
+  {
+   "id": "tr-sleepdebt",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Sleep debt — under 6.5h on weeknights",
+   "distillate_text": "The weekday-only pattern fits this best. Leading suspect, but still unconfirmed — a week of tracking would settle it.",
+   "distillate_confidence": 0.55,
+   "distillate_updated": "2026-07-20T14:00:00+07:00",
+   "body": "Fits the biggest clue (weekends are fine). Leading does not mean proven.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  },
+  {
+   "id": "tr-solution",
+   "kind": "solution",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "energy",
+   "title": "Protect a 7-hour sleep window; retest lunch next",
+   "distillate_text": "Act on the leader (sleep debt) while queuing the next test (lunch). Do not declare victory yet.",
+   "distillate_confidence": 0.5,
+   "distillate_updated": "2026-07-20T14:00:00+07:00",
+   "body": "A solution can be provisional: act on the best-supported claim without pretending the others are closed.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T14:00:00+07:00"
+  }
+ ],
+ "facets": [
+  {
+   "node_id": "tr-problem",
+   "name": "pattern",
+   "semantic": "gating",
+   "distillate": "Only weekdays — weekends are fine. The single biggest clue.",
+   "confidence": 0.6
+  },
+  {
+   "node_id": "tr-problem",
+   "name": "severity",
+   "semantic": "informational",
+   "distillate": "Need coffee or I am useless by 3pm.",
+   "confidence": 0.4
+  }
+ ],
+ "edges": [
+  {
+   "src": "tr-problem",
+   "from_facet": null,
+   "to_id": "tr-sleepdebt",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "tr-problem",
+   "from_facet": null,
+   "to_id": "tr-caffeine",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "tr-problem",
+   "from_facet": null,
+   "to_id": "tr-lunch",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "tr-problem",
+   "from_facet": null,
+   "to_id": "tr-screens",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "tr-problem",
+   "from_facet": null,
+   "to_id": "tr-iron",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "tr-coffee-test",
+   "from_facet": null,
+   "to_id": "tr-caffeine",
+   "to_facet": null,
+   "rel": "blocks",
+   "note": null
+  },
+  {
+   "src": "tr-sleepdebt",
+   "from_facet": null,
+   "to_id": "tr-solution",
+   "to_facet": null,
+   "rel": "answers",
+   "note": null
+  },
+  {
+   "src": "tr-problem",
+   "from_facet": "pattern",
+   "to_id": "tr-sleepdebt",
+   "to_facet": null,
+   "rel": "drives",
+   "note": "the weekday-only pattern points straight here"
+  }
+ ],
+ "captures": [
+  {
+   "id": "tr-cap",
+   "text": "is the crash worse after meetings? note the days",
+   "created": "2026-07-20"
+  }
+ ]
+}

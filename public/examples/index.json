@@ -1,0 +1,20 @@
+{
+ "examples": [
+  {
+   "id": "ex-bedtime",
+   "name": "Bedtime meltdowns (example)"
+  },
+  {
+   "id": "ex-job",
+   "name": "Should I take the job? (example)"
+  },
+  {
+   "id": "ex-tired",
+   "name": "Always tired (example)"
+  },
+  {
+   "id": "example",
+   "name": "Cut my food spending (example)"
+  }
+ ]
+}

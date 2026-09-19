@@ -1,0 +1,240 @@
+{
+ "weave": 1,
+ "exported": "2026-09-18T00:00:00.000Z",
+ "project": {
+  "name": "Bedtime meltdowns (example)"
+ },
+ "nodes": [
+  {
+   "id": "bt-after-dinner",
+   "kind": "gap",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "Melts down right after a full dinner",
+   "distillate_text": "Full belly, same meltdown. The hunger explanation does not survive this.",
+   "distillate_confidence": 0.55,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "A blocker aimed at \"hungry\". One clean counter-example is enough to sink a simple claim.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-connection",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "It is a bid for connection, not tiredness",
+   "distillate_text": "The only explanation that made a prediction and got it right: calm nights track with one-on-one time.",
+   "distillate_confidence": 0.63,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "Reframes the meltdown as a need, not a malfunction. Predicts: connect first = calmer bedtime.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-earlier-worse",
+   "kind": "gap",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "Earlier bedtime made it worse, not better",
+   "distillate_text": "The prediction of \"overtired\" failed — earlier meant more tears. That is disconfirming, not neutral.",
+   "distillate_confidence": 0.55,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "A blocker aimed at \"overtired\". A failed prediction should pull confidence down, not be quietly ignored.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-grandma",
+   "kind": "gap",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "Falls apart at grandma's even with the ritual",
+   "distillate_text": "A new place breaks the ritual. Even the winning path has a live threat — keep it honest.",
+   "distillate_confidence": 0.4,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "A blocker on the solution. Surviving so far is not the same as solved.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-hungry",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "He is hungry before bed",
+   "distillate_text": "A bedtime snack should fix it. It does not. Barely standing.",
+   "distillate_confidence": 0.2,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "Predicts: full belly = calm. Easy to test, and it failed.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-overtired",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "He is overtired — we start too late",
+   "distillate_text": "Plausible on its face, but the one night we moved bedtime earlier it got worse. On the ropes.",
+   "distillate_confidence": 0.22,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "The obvious first guess. It predicts: earlier bedtime = calmer. That prediction was tested.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-problem",
+   "kind": "problem",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "Bedtime melts down most nights",
+   "distillate_text": "The 7pm routine collapses into tears 4–5 nights a week. Three explanations compete — only one has survived a test.",
+   "distillate_confidence": 0.7,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "Tears, refusals, a 45-minute battle. Instead of guessing, name the competing causes and see which one makes a prediction that holds.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-reason",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "Ten minutes one-on-one first makes bedtime calm",
+   "distillate_text": "Tested four nights: four calm. Small sample, but it is real signal — the premise the whole thing rests on.",
+   "distillate_confidence": 0.66,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "A premise under \"connection\": the checkable claim that carries the weight. This is a Reason, not a restatement.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  },
+  {
+   "id": "bt-ritual",
+   "kind": "solution",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "bedtime",
+   "title": "A 10-minute wind-down: one-on-one, then lights",
+   "distillate_text": "Act on the surviving explanation. Connection first; earlier lights only as a secondary lever.",
+   "distillate_confidence": 0.55,
+   "distillate_updated": "2026-07-20T20:00:00+07:00",
+   "body": "Built from the hypothesis that survived — not the one that sounded best.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T20:00:00+07:00"
+  }
+ ],
+ "facets": [
+  {
+   "node_id": "bt-problem",
+   "name": "trigger",
+   "semantic": "gating",
+   "distillate": "Starts the moment screens go off — or is that a coincidence worth checking?",
+   "confidence": 0.5
+  },
+  {
+   "node_id": "bt-problem",
+   "name": "consistency",
+   "semantic": "accumulative",
+   "distillate": "Worse on days with no nap — the pattern to explain.",
+   "confidence": 0.55
+  },
+  {
+   "node_id": "bt-reason",
+   "name": "evidence",
+   "semantic": "informational",
+   "distillate": "Four of four calm nights when we did the one-on-one first.",
+   "confidence": 0.6
+  }
+ ],
+ "edges": [
+  {
+   "src": "bt-problem",
+   "from_facet": null,
+   "to_id": "bt-overtired",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "bt-problem",
+   "from_facet": null,
+   "to_id": "bt-hungry",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "bt-problem",
+   "from_facet": null,
+   "to_id": "bt-connection",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "bt-connection",
+   "from_facet": null,
+   "to_id": "bt-reason",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "bt-connection",
+   "from_facet": null,
+   "to_id": "bt-ritual",
+   "to_facet": null,
+   "rel": "answers",
+   "note": null
+  },
+  {
+   "src": "bt-earlier-worse",
+   "from_facet": null,
+   "to_id": "bt-overtired",
+   "to_facet": null,
+   "rel": "blocks",
+   "note": null
+  },
+  {
+   "src": "bt-after-dinner",
+   "from_facet": null,
+   "to_id": "bt-hungry",
+   "to_facet": null,
+   "rel": "blocks",
+   "note": null
+  },
+  {
+   "src": "bt-grandma",
+   "from_facet": null,
+   "to_id": "bt-ritual",
+   "to_facet": null,
+   "rel": "blocks",
+   "note": null
+  }
+ ],
+ "captures": [
+  {
+   "id": "bt-cap",
+   "text": "he asks for \"five more minutes\" — of what, exactly?",
+   "created": "2026-07-20"
+  }
+ ]
+}

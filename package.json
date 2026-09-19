@@ -2,15 +2,19 @@
   "name": "weave-web",
   "version": "0.1.0",
   "private": true,
-  "description": "Weave — a folder-as-truth reasoning graph, on Cloudflare Pages + D1 + OpenRouter",
+  "license": "AGPL-3.0-only",
+  "description": "Weave — a local-first reasoning graph. Runs as a static page; Cloudflare Pages + D1 is an optional backend.",
   "scripts": {
+    "serve": "npx --yes serve public",
     "dev": "wrangler pages dev public --d1=DB",
     "db:init": "wrangler d1 execute weave --local --file=./migrations/0001_init.sql",
     "db:seed": "wrangler d1 execute weave --local --file=./migrations/0002_seed.sql",
     "db:projects": "wrangler d1 execute weave --local --file=./migrations/0003_projects.sql",
+    "db:examples": "wrangler d1 execute weave --local --file=./migrations/0004_examples.sql",
     "db:init:remote": "wrangler d1 execute weave --remote --file=./migrations/0001_init.sql",
     "db:seed:remote": "wrangler d1 execute weave --remote --file=./migrations/0002_seed.sql",
     "db:projects:remote": "wrangler d1 execute weave --remote --file=./migrations/0003_projects.sql",
+    "db:examples:remote": "wrangler d1 execute weave --remote --file=./migrations/0004_examples.sql",
     "deploy": "wrangler pages deploy public"
   },
   "devDependencies": {

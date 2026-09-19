@@ -1,0 +1,210 @@
+{
+ "weave": 1,
+ "exported": "2026-09-18T00:00:00.000Z",
+ "project": {
+  "name": "Should I take the job? (example)"
+ },
+ "nodes": [
+  {
+   "id": "jb-equity",
+   "kind": "hypothesis",
+   "state": "freeform",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "Is the equity actually worth anything?",
+   "distillate_text": null,
+   "distillate_confidence": null,
+   "distillate_updated": null,
+   "body": "Unknown until I see strike price, preferences, and the last valuation. An open question, not a bet — left unset on purpose.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  },
+  {
+   "id": "jb-escape",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "I am mostly running from my boss, not toward this",
+   "distillate_text": "A claim about my own motive — uncomfortable, but it predicts regret if true, so it is worth testing honestly.",
+   "distillate_confidence": 0.45,
+   "distillate_updated": "2026-07-20T10:00:00+07:00",
+   "body": "A hypothesis pointed at myself. Naming it as a testable claim beats letting it operate unexamined.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  },
+  {
+   "id": "jb-growth",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "The new role grows me faster than staying",
+   "distillate_text": "A claim I am asserting, held weakly: bigger scope hints at it, but I have no outside data yet.",
+   "distillate_confidence": 0.35,
+   "distillate_updated": "2026-07-20T10:00:00+07:00",
+   "body": "This is a hypothesis — a position I can argue and test — not a fact. Its confidence should stay low until a gap closes.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  },
+  {
+   "id": "jb-manager",
+   "kind": "hypothesis",
+   "state": "freeform",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "Will the new manager actually be good?",
+   "distillate_text": null,
+   "distillate_confidence": null,
+   "distillate_updated": null,
+   "body": "No position — this is an unknown, not a claim. Backchannel two ex-reports to resolve it. Confidence stays unset until then: pretending to know is the trap.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  },
+  {
+   "id": "jb-nodata",
+   "kind": "gap",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "Haven't spoken to anyone who left that company",
+   "distillate_text": "The growth claim cannot earn confidence until this gap closes — no evidence, no promotion.",
+   "distillate_confidence": 0.5,
+   "distillate_updated": "2026-07-20T10:00:00+07:00",
+   "body": "A blocker on the growth hypothesis. This is what keeps its confidence honestly low.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  },
+  {
+   "id": "jb-plan",
+   "kind": "solution",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "Backchannel the manager + get equity terms, then decide in 2 weeks",
+   "distillate_text": "Do not decide yet. Resolve the two open questions, close the data gap, then choose with earned confidence.",
+   "distillate_confidence": 0.58,
+   "distillate_updated": "2026-07-20T10:00:00+07:00",
+   "body": "The output of a good decision graph is sometimes \"run these checks first,\" not a snap answer.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  },
+  {
+   "id": "jb-problem",
+   "kind": "problem",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "Take the new job, or stay?",
+   "distillate_text": "A real fork. Separate what I am claiming from what I do not yet know — and do not force a confidence I have not earned.",
+   "distillate_confidence": 0.5,
+   "distillate_updated": "2026-07-20T10:00:00+07:00",
+   "body": "Most bad decisions here come from treating an unknown as if it were settled. Sort each sub-node into claim vs. open question first.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  },
+  {
+   "id": "jb-scope",
+   "kind": "hypothesis",
+   "state": "distilled",
+   "region": "solve",
+   "lean": "inherit",
+   "cluster": "decision",
+   "title": "Scope is genuinely bigger — lead of 6 vs. solo",
+   "distillate_text": "The one concrete, checkable premise under \"growth\". Confirmed from the job description.",
+   "distillate_confidence": 0.6,
+   "distillate_updated": "2026-07-20T10:00:00+07:00",
+   "body": "A Reason under the growth claim: the piece that is actually verified, holding up the piece that is not.",
+   "created": "2026-07-20",
+   "updated": "2026-07-20T10:00:00+07:00"
+  }
+ ],
+ "facets": [
+  {
+   "node_id": "jb-problem",
+   "name": "reversibility",
+   "semantic": "gating",
+   "distillate": "Hard to undo — I would be burning the bridge.",
+   "confidence": 0.6
+  },
+  {
+   "node_id": "jb-problem",
+   "name": "timeline",
+   "semantic": "informational",
+   "distillate": "They want an answer in two weeks.",
+   "confidence": 0.5
+  }
+ ],
+ "edges": [
+  {
+   "src": "jb-problem",
+   "from_facet": null,
+   "to_id": "jb-growth",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "jb-problem",
+   "from_facet": null,
+   "to_id": "jb-escape",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "jb-problem",
+   "from_facet": null,
+   "to_id": "jb-manager",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "jb-problem",
+   "from_facet": null,
+   "to_id": "jb-equity",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "jb-growth",
+   "from_facet": null,
+   "to_id": "jb-scope",
+   "to_facet": null,
+   "rel": "decomposes",
+   "note": null
+  },
+  {
+   "src": "jb-nodata",
+   "from_facet": null,
+   "to_id": "jb-growth",
+   "to_facet": null,
+   "rel": "blocks",
+   "note": null
+  },
+  {
+   "src": "jb-growth",
+   "from_facet": null,
+   "to_id": "jb-plan",
+   "to_facet": null,
+   "rel": "answers",
+   "note": null
+  }
+ ],
+ "captures": [
+  {
+   "id": "jb-cap",
+   "text": "what would make me say no in 6 months? write it down now",
+   "created": "2026-07-20"
+  }
+ ]
+}

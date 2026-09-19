@@ -3542,6 +3542,27 @@ line or null}. Terse. No sentences longer than the limits.`;
     }
   }
 
+  /* ---- bundled examples ------------------------------------------------
+     The example graphs ship as static JSON next to the app, so the demo needs
+     no database at all. On file:// these fetches are blocked by the browser,
+     in which case examples simply don't appear — everything else still works. */
+  let _exCache = null;
+  async function exampleList(){
+    if(_exCache) return _exCache;
+    try{
+      const r = await fetch('examples/index.json', { cache:'no-store' });
+      if(!r.ok) throw new Error('no manifest');
+      const j = await r.json();
+      _exCache = Array.isArray(j.examples) ? j.examples : [];
+    }catch(e){ _exCache = []; }
+    return _exCache;
+  }
+  async function exampleBundle(id){
+    const r = await fetch('examples/' + encodeURIComponent(id) + '.weave.json', { cache:'no-store' });
+    if(!r.ok) throw new Error('example not found');
+    return r.json();
+  }
+
   const Local = {
     async graph(projectId){
       const d = await load(projectId);
@@ -3560,7 +3581,7 @@ line or null}. Terse. No sentences longer than the limits.`;
       if(!all.length){ const d = blank('default'); await putDoc(d); all.push(d); }
       const projects = all.map(d => ({ id:d.id, name:d.name, created:d.created }))
         .sort((x,y) => String(y.created).localeCompare(String(x.created)));
-      return { projects, examples: [] };
+      return { projects, examples: await exampleList() };
     },
     async projectOp(op, args){
       const a = args || {};
@@ -3568,6 +3589,13 @@ line or null}. Terse. No sentences longer than the limits.`;
         const id = 'p' + Math.random().toString(36).slice(2,9);
         const d = blank(id, (a.name || 'Untitled').toString().slice(0,120));
         await putDoc(d);
+        if(a.from && a.from !== 'blank'){
+          try{
+            applyOp(d, 'importVault', { bundle: await exampleBundle(a.from) });
+            d.name = (a.name || d.name).toString().slice(0,120); // keep the picker's clean title
+            await putDoc(d);
+          }catch(e){ /* example unavailable -> leave the new project blank */ }
+        }
         return Object.assign({ id, name:d.name }, await Local.projects());
       }
       if(op === 'rename'){

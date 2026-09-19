@@ -1,0 +1,11 @@
+# Only public/ is needed for the static image.
+node_modules
+.wrangler
+.dev.vars
+dist
+*.log
+.DS_Store
+functions
+migrations
+wrangler.toml
+package-lock.json
