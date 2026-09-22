@@ -3707,5 +3707,229 @@ line or null}. Terse. No sentences longer than the limits.`;
   else mountBtn();
 })();
 </script>
+<script>
+/* ============================================================================
+   Weave Folder — save your work to a real folder on your disk.
+
+   Uses the File System Access API (Chrome / Edge / Opera). You pick a folder
+   once; from then on every change is written out as TWO files per project:
+
+       <project>.weave.json   the exact data, what Restore reads back
+       <project>.md           the same graph as readable Markdown
+
+   Deliberately a MIRROR, not a replacement: the browser database stays the
+   working store, so a revoked permission or a closed laptop can never lose
+   work — the worst case is a file that's a few seconds stale.
+
+   Unsupported browsers (Safari, Firefox) keep working exactly as before; the
+   button simply explains why it isn't available.
+   ========================================================================== */
+(function(){
+  const SUPPORTED = (typeof window.showDirectoryPicker === 'function');
+  const DB = 'weave-folder', STORE = 'handles', KEY = 'dir';
+  let dirHandle = null, syncTimer = null, lastSaved = null;
+
+  /* ---- tiny IndexedDB just for the folder handle (separate from the data) -- */
+  function idb(){
+    return new Promise((res, rej) => {
+      const r = indexedDB.open(DB, 1);
+      r.onupgradeneeded = () => { const d = r.result; if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE); };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  function idbGet(){ return idb().then(d => new Promise((res, rej) => {
+    const t = d.transaction(STORE, 'readonly'), q = t.objectStore(STORE).get(KEY);
+    q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error);
+  })); }
+  function idbSet(v){ return idb().then(d => new Promise((res, rej) => {
+    const t = d.transaction(STORE, 'readwrite'); t.objectStore(STORE).put(v, KEY);
+    t.oncomplete = () => res(true); t.onerror = () => rej(t.error);
+  })); }
+  function idbDel(){ return idb().then(d => new Promise((res) => {
+    const t = d.transaction(STORE, 'readwrite'); t.objectStore(STORE).delete(KEY);
+    t.oncomplete = () => res(true); t.onerror = () => res(false);
+  })); }
+
+  /* ---- permissions ------------------------------------------------------- */
+  async function hasPermission(h, request){
+    if(!h || !h.queryPermission) return false;
+    const opts = { mode: 'readwrite' };
+    if((await h.queryPermission(opts)) === 'granted') return true;
+    if(request && (await h.requestPermission(opts)) === 'granted') return true;
+    return false;
+  }
+
+  /* ---- what we write ----------------------------------------------------- */
+  function slug(s){
+    return (String(s || 'weave').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')) || 'weave';
+  }
+  async function currentBundle(){
+    // Local mode: straight from the engine. Server mode: ask the backend.
+    if(window.WeaveLocal && (await window.WeaveLocal.mode()) === 'local'){
+      return window.WeaveLocal.engine.exportBundle(WV.project || 'default');
+    }
+    const r = await fetch('/api/export', { headers: WV.headers(), cache:'no-store' });
+    if(!r.ok) throw new Error('export ' + r.status);
+    return r.json();
+  }
+  async function writeFile(name, text){
+    const fh = await dirHandle.getFileHandle(name, { create: true });
+    const w = await fh.createWritable();
+    await w.write(text);
+    await w.close();
+  }
+
+  /* ---- the actual save --------------------------------------------------- */
+  async function saveNow(quiet){
+    if(!dirHandle) return false;
+    if(!(await hasPermission(dirHandle, false))){
+      if(!quiet) flash('Folder access expired — click “Folder” to reconnect.');
+      paint('reconnect');
+      return false;
+    }
+    try{
+      const bundle = await currentBundle();
+      const base = slug(bundle && bundle.project && bundle.project.name);
+      await writeFile(base + '.weave.json', JSON.stringify(bundle, null, 2));
+      // readable companion — best effort, never blocks the data file
+      try{
+        if(typeof buildMarkdown === 'function' && window.WEAVE_GRAPH){
+          await writeFile(base + '.md', buildMarkdown(window.WEAVE_GRAPH));
+        }
+      }catch(e){ /* markdown is a convenience, not the record */ }
+      lastSaved = new Date();
+      paint('on');
+      if(!quiet) flash('Saved to ' + (dirHandle.name || 'your folder'));
+      return true;
+    }catch(e){
+      paint('error');
+      flash('Could not write to the folder: ' + (e && e.message ? e.message : e));
+      return false;
+    }
+  }
+  function scheduleSync(){
+    if(!dirHandle) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { saveNow(true); }, 1200);
+  }
+
+  /* ---- connect / restore / disconnect ------------------------------------ */
+  async function connect(){
+    if(!SUPPORTED){
+      flash('Your browser can’t save to a folder yet — try Chrome or Edge.');
+      return false;
+    }
+    try{
+      dirHandle = await window.showDirectoryPicker({ mode:'readwrite', id:'weave-vault' });
+    }catch(e){ return false; }               // user cancelled the picker
+    if(!(await hasPermission(dirHandle, true))){ dirHandle = null; return false; }
+    try{ await idbSet(dirHandle); }catch(e){ /* handle just won't persist */ }
+    await saveNow();
+    return true;
+  }
+  async function listBundles(){
+    const out = [];
+    if(!dirHandle || !dirHandle.values) return out;
+    for await (const entry of dirHandle.values()){
+      if(entry.kind === 'file' && /\.weave\.json$/i.test(entry.name)) out.push(entry.name);
+    }
+    return out.sort();
+  }
+  async function restore(name){
+    try{
+      const fh = await dirHandle.getFileHandle(name);
+      const bundle = JSON.parse(await (await fh.getFile()).text());
+      if(bundle.weave !== 1 || !Array.isArray(bundle.nodes)){ flash('That file is not a Weave bundle.'); return; }
+      const label = (((bundle.project && bundle.project.name) || name.replace(/\.weave\.json$/i,'')) + ' (from folder)').slice(0,120);
+      const r = await WV.projectOp('create', { name: label, from:'blank' });
+      WV.setProject(r.id);
+      await WV.mutate('importVault', { bundle: bundle });
+      await reload();
+      flash('Restored ' + bundle.nodes.length + ' nodes from ' + name);
+    }catch(e){ flash('Restore failed: ' + (e && e.message ? e.message : e)); }
+  }
+  async function disconnect(){
+    dirHandle = null; lastSaved = null;
+    try{ await idbDel(); }catch(e){}
+    paint('off');
+    flash('Folder disconnected — your work stays in this browser.');
+  }
+
+  /* ---- UI ----------------------------------------------------------------- */
+  function paint(state){
+    const b = document.getElementById('btnFolder'); if(!b) return;
+    const name = dirHandle && dirHandle.name ? dirHandle.name : '';
+    if(state === 'on'){ b.textContent = '🗂 ' + (name || 'Folder'); b.title = 'Saving to “' + name + '”' + (lastSaved ? ' · last saved ' + lastSaved.toLocaleTimeString() : ''); }
+    else if(state === 'reconnect'){ b.textContent = '🗂 Reconnect'; b.title = 'Folder access expired — click to grant it again'; }
+    else if(state === 'error'){ b.textContent = '🗂 Error'; b.title = 'The last save failed — click for options'; }
+    else { b.textContent = '🗂 Folder'; b.title = SUPPORTED ? 'Also save your work to a folder on your computer' : 'Saving to a folder needs Chrome or Edge'; }
+  }
+
+  let panel = null;
+  async function openPanel(){
+    if(!dirHandle){ await connect(); return; }
+    if(!panel){
+      panel = document.createElement('div');
+      panel.id = 'folderPanel';
+      panel.style.cssText = 'position:fixed;inset:0;z-index:9810;display:none;align-items:center;justify-content:center;background:rgba(10,12,16,.5)';
+      panel.addEventListener('click', e => { if(e.target === panel) panel.style.display='none'; });
+      document.body.appendChild(panel);
+    }
+    const files = await listBundles();
+    const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    panel.innerHTML = ''
+      + '<div style="width:440px;max-width:calc(100vw - 28px);max-height:88vh;overflow:auto;background:var(--page,#fff);border:1px solid var(--hairline,#e5e5e5);border-radius:14px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.3);font-family:Inter,system-ui,sans-serif">'
+      +   '<div style="display:flex;align-items:center;gap:8px"><div style="font-size:15px;font-weight:600;color:var(--ink,#111);flex:1">Folder on your computer</div>'
+      +     '<button id="fpX" style="border:none;background:transparent;color:var(--mute,#999);font-size:16px;cursor:pointer">✕</button></div>'
+      +   '<div style="font-size:12px;color:var(--body,#555);line-height:1.55;margin:8px 0 14px">Saving to <b>' + esc(dirHandle.name || 'your folder') + '</b>. Every change is written there as a <code>.weave.json</code> data file plus a readable <code>.md</code>. Your browser keeps the working copy, so nothing is lost if the folder goes away.</div>'
+      +   '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +     '<button id="fpSave" style="background:var(--ink,#141414);color:var(--page,#fff);border:none;border-radius:7px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer">Save now</button>'
+      +     '<button id="fpSwitch" style="background:transparent;border:1px solid var(--hairline,#ddd);color:var(--body,#444);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer">Change folder…</button>'
+      +     '<button id="fpOff" style="background:transparent;border:1px solid var(--hairline,#ddd);color:var(--body,#444);border-radius:7px;padding:8px 14px;font-size:12px;cursor:pointer">Disconnect</button>'
+      +   '</div>'
+      +   '<div style="font-size:10px;font-family:\'IBM Plex Mono\',monospace;letter-spacing:.4px;text-transform:uppercase;color:var(--mute,#999);margin:18px 0 6px">Restore from this folder</div>'
+      +   (files.length
+          ? '<div>' + files.map(f => '<button class="fp-row" data-f="' + esc(f) + '" style="display:block;width:100%;text-align:left;background:var(--canvas,#fafafa);border:1px solid var(--hairline,#eee);border-radius:7px;padding:9px 11px;margin-bottom:6px;font-size:12px;cursor:pointer;font-family:\'IBM Plex Mono\',monospace">' + esc(f) + '</button>').join('') + '</div>'
+          + '<div style="font-size:11px;color:var(--mute,#999);margin-top:4px">Opens as a new project — nothing you already have is replaced.</div>'
+          : '<div style="font-size:12px;color:var(--mute,#999)">No Weave files here yet. They appear after the first save.</div>')
+      + '</div>';
+    panel.style.display = 'flex';
+    panel.querySelector('#fpX').onclick = () => { panel.style.display='none'; };
+    panel.querySelector('#fpSave').onclick = async () => { panel.style.display='none'; await saveNow(); };
+    panel.querySelector('#fpSwitch').onclick = async () => { panel.style.display='none'; await connect(); };
+    panel.querySelector('#fpOff').onclick = async () => { panel.style.display='none'; await disconnect(); };
+    panel.querySelectorAll('.fp-row').forEach(btn => {
+      btn.onclick = async () => { panel.style.display='none'; await restore(btn.dataset.f); };
+    });
+  }
+
+  function mount(){
+    if(document.getElementById('btnFolder')) return;
+    const host = document.querySelector('.projacts'); if(!host) return;
+    const b = document.createElement('button');
+    b.id = 'btnFolder'; b.className = 'pjbtn';
+    b.onclick = openPanel;
+    host.appendChild(b);
+    paint('off');
+    // Re-attach a previously chosen folder, if the browser still grants it.
+    if(SUPPORTED) idbGet().then(async h => {
+      if(!h) return;
+      dirHandle = h;
+      paint((await hasPermission(h, false)) ? 'on' : 'reconnect');
+    }).catch(()=>{});
+  }
+
+  /* ---- mirror every change ------------------------------------------------ */
+  if(typeof WV !== 'undefined' && WV.mutate){
+    const prev = WV.mutate.bind(WV);
+    WV.mutate = async function(op, args){ const g = await prev(op, args); scheduleSync(); return g; };
+  }
+
+  window.WeaveFolder = { supported:SUPPORTED, connect, saveNow, disconnect, listBundles, restore, open:openPanel };
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
+  else mount();
+})();
+</script>
 </body>
 </html>

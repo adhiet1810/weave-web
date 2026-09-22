@@ -13,8 +13,9 @@ readable file you can keep, move, back up, or open anywhere. Nothing is locked i
 a format only Weave can read. If Weave disappeared tomorrow, your thinking would
 still be yours, in a format that outlives any app.
 
-*(Today that store is your browser's local database, on your machine. Writing
-straight to a folder of Markdown files on your disk is where this is going.)*
+*(In Chrome and Edge you can point Weave at a folder on your disk and it writes
+your work there as you go — data plus readable Markdown. Elsewhere it stays in
+your browser's local store, on your machine, until those browsers catch up.)*
 
 ### 2. Your key, your AI
 

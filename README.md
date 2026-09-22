@@ -133,6 +133,22 @@ when you close the tab and come back later.
 That means: they are **not** synced between devices, and they are **not** in the
 cloud. It also means nobody else can read them.
 
+### Save to a folder on your computer
+
+In **Chrome or Edge** you can point Weave at a real folder on your disk. Click
+**🗂 Folder** in the top bar and choose one. From then on every change is written
+there automatically, as two files per project:
+
+- **`your-project.weave.json`** — the data, which Weave can read back
+- **`your-project.md`** — the same graph as readable Markdown
+
+Your browser still keeps the working copy, so nothing is lost if the folder gets
+moved, renamed, or unplugged — the worst case is a file that's a few seconds old.
+The same panel has **Restore from this folder**, which brings a project back on
+this computer or any other.
+
+Safari and Firefox don't support this yet; there the button simply explains why.
+
 ### ⚠️ Please back up your work
 
 Clearing your browser's history or site data **will delete your Weave projects**.
