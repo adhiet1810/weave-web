@@ -15,6 +15,15 @@ a document — it's a map of your own reasoning, where you can see the weak spot
 server that stores your thinking. If you connect an AI, it runs on *your* key and
 talks to *your* provider directly.
 
+## Supporting Weave
+
+Weave is free and will stay free. If it comes to matter in how you think, you're
+warmly invited to support its making — [buy me a coffee ☕](https://buymeacoffee.com/adhiet1810).
+It's an invitation, offered gently and gratefully — never an obligation, and never
+a gate placed in front of the tool.
+
+The five promises Weave is built on are in the [manifesto](./MANIFESTO.md).
+
 ---
 
 # Getting started
@@ -143,21 +152,6 @@ There's no copy anywhere else. So:
 | **"command not found: python3"** | Python isn't installed. | Use the Node command instead. |
 | **A blank page** | The folder is wrong. | Make sure you're in the folder that *contains* `public`, not inside `public` itself. |
 | **My projects vanished** | Browser data was cleared, or you're in a different browser. | Projects live per-browser. Restore from a `{ } JSON` backup if you have one. |
-
----
-
-# Supporting Weave
-
-Weave is built and cared for by one person, in the hours found around everything
-else. It's free, and it will stay free.
-
-If it comes to matter in how you think, you're warmly invited to support its
-making — [buy me a coffee ☕](https://buymeacoffee.com/adhiet1810). What you
-give goes toward the time and craft behind Weave, and toward where it grows from
-here. It's an invitation, offered gently and gratefully — never an obligation,
-and never a gate placed in front of the tool.
-
-The five promises Weave is built on are in the [manifesto](./MANIFESTO.md).
 
 ---
 ---
