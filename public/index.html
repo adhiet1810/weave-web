@@ -3009,7 +3009,13 @@ async function boot(){
   if(window.__fitView){ window.__fitView(); }
   if(window.__reheat){ window.__reheat(0.9); }
 }
-boot();
+// Defer boot until every inline script has run. The local-first storage engine
+// and the BYOK AI client are defined in later <script> blocks; booting before
+// they install their patches would send the first graph read to /api/graph and
+// fail on a static host (no backend). DOMContentLoaded fires after all inline
+// scripts are parsed and executed, so by then WV is fully wired.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
 </script>
 <script>
 /* ============================================================================
@@ -3619,7 +3625,7 @@ line or null}. Terse. No sentences longer than the limits.`;
 
   /* ---------------- mode: local vs server -------------------------------- */
   const KEY = 'weave_storage';
-  let _mode = null;
+  let _mode = null, _modeProbe = null;
   function stored(){ try { return localStorage.getItem(KEY) || ''; } catch(e){ return ''; } }
   async function mode(){
     if(_mode) return _mode;
@@ -3627,14 +3633,22 @@ line or null}. Terse. No sentences longer than the limits.`;
     if(s === 'local' || s === 'server'){ _mode = s; return _mode; }
     // No explicit choice: use the server only if this deployment actually has one,
     // so existing D1 instances keep working and a static page falls back to local.
-    try {
-      const r = await fetch('/api/graph', { headers:WV.headers(), cache:'no-store' });
-      _mode = r.ok ? 'server' : 'local';
-    } catch(e){ _mode = 'local'; }
+    // Memoised as a PROMISE, not just a value: several WV calls race at boot and
+    // would otherwise each fire their own probe. On a static host this makes one
+    // harmless 404 in the console instead of several.
+    if(!_modeProbe){
+      _modeProbe = (async () => {
+        try {
+          const r = await fetch('/api/graph', { headers:WV.headers(), cache:'no-store' });
+          return r.ok ? 'server' : 'local';
+        } catch(e){ return 'local'; }
+      })();
+    }
+    _mode = await _modeProbe;
     return _mode;
   }
   function setMode(m){
-    _mode = m; try { localStorage.setItem(KEY, m); } catch(e){}
+    _mode = m; _modeProbe = Promise.resolve(m); try { localStorage.setItem(KEY, m); } catch(e){}
     paintBtn();
   }
 
