@@ -15,11 +15,15 @@ a document — it's a map of your own reasoning, where you can see the weak spot
 server that stores your thinking. If you connect an AI, it runs on *your* key and
 talks to *your* provider directly.
 
-![Weave: a reasoning graph. On the left a problem breaks into hypotheses, a solution and a gap; on the right seeds combine into a synthesis. A panel shows the selected node's distilled claim and confidence.](./docs/screenshot.png)
+[![Weave: a reasoning graph. On the left a problem breaks into hypotheses, a solution and a gap; on the right seeds combine into a synthesis. A panel shows the selected node's distilled claim and confidence.](./docs/screenshot.png)](https://youtu.be/9nWLBtDbxfw)
 
 *The solve side (left, green) converges toward an answer. The create side (right,
 amber) diverges from a spark. The dotted line between them is a shared dimension —
 here, bulk pricing — reachable from both directions.*
+
+**▶ [Watch the four-minute walkthrough](https://youtu.be/9nWLBtDbxfw)** — a loose thought becomes a
+problem, the problem decomposes into a hypothesis, the hypothesis is answered by a
+solution, and then the same canvas is used to spark and combine new ideas.
 
 ## Supporting Weave
 
