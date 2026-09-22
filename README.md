@@ -1,158 +1,162 @@
 # Weave
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-003c33.svg)](./LICENSE)
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/adhiet1810/weave-web)
 
-**A tool for thinking through hard things.** Weave holds your reasoning as a
-graph of typed nodes — `problem`, `hypothesis`, `solution`, `seed`, `synthesis`,
-`gap` — joined by typed edges on two planes: a **structural spine** (decomposes /
-answers / blocks / sparks / combines / refines) and a **dimensional** layer
-(shares / drives / depends-on / constrains) that folds away until you want it.
+**A tool for thinking through hard things.**
 
-The structure *is* the prompt. Because the AI reads a typed graph instead of a
-wall of prose, asking it to act on a node is a precise instruction rather than a
-vague request.
+Most tools help you write down what you already think. Weave helps you *work out*
+what you think — by laying a problem out as a picture you can question.
 
-**Weave is local-first.** Your graph lives on your device. There is no account,
-no sign-up, and no server that holds your thinking. See [the manifesto](../MANIFESTO.md).
+You break a problem into the ideas it rests on. You mark which ideas answer it,
+which ones block it, and which are still just hunches. What you end up with isn't
+a document — it's a map of your own reasoning, where you can see the weak spots.
+
+**Everything stays on your computer.** There's no account, no sign-up, and no
+server that stores your thinking. If you connect an AI, it runs on *your* key and
+talks to *your* provider directly.
 
 ---
 
-## Run it
+# Getting started
 
-Three ways, easiest first. **The first needs nothing but a web server.**
+## The quickest way — nothing to install
 
-### 1. Just serve the folder (recommended)
+1. On the GitHub page, click the green **Code** button → **Download ZIP**.
+2. Unzip the file you downloaded.
+3. Open the folder, then the **`public`** folder inside it.
+4. Double-click **`index.html`**.
 
-Weave runs as a plain static page. No database, no account, no build step.
+Weave opens in your web browser. A short welcome tour appears — click through it,
+or skip it.
 
-```bash
-npx --yes serve public        # or: python3 -m http.server -d public 8080
-```
+> **One limitation with this method:** the four built-in **example graphs won't
+> load**. This isn't a bug in Weave — web browsers block pages opened straight
+> from a folder from reading other files, as a security rule. Everything else
+> works normally. To get the examples, use the method below.
 
-Open the printed URL. That's the whole install. Your graphs are stored in your
-browser (IndexedDB), and the four example graphs are bundled as static files.
+## With the examples — one command
 
-> **Why not just double-click `public/index.html`?** It mostly works, but
-> browsers block `fetch` on `file://`, so the bundled **examples won't load**.
-> Everything else does. Serving the folder is one command and avoids the issue.
+This needs **Node.js** or **Python** on your computer. Many people already have
+one. (Not sure? Just try the commands — if you get "command not found", you don't
+have it, and you can download Node from [nodejs.org](https://nodejs.org).)
 
-### 2. With Docker
+**Step 1.** Open Terminal (Mac) or Command Prompt (Windows).
+
+**Step 2.** Go into the unzipped folder. Type `cd ` (with a space), then drag the
+folder onto the window and press Enter. You want the folder that *contains*
+`public` — usually called `weave-web-main`.
+
+**Step 3.** Run **one** of these:
+
+| If you have… | Type this | Then open in your browser |
+|---|---|---|
+| **Node.js** | `npx --yes serve public` | `http://localhost:3000` |
+| **Python** | `python3 -m http.server -d public 8080` | `http://localhost:8080` |
+
+> ⚠️ **The two commands use different addresses.** `serve` uses port **3000**;
+> Python uses **8080**. If the page doesn't load, check you're using the address
+> that matches your command.
+
+Leave that window open while you use Weave — it's what's serving the page. When
+you're done, close it or press `Ctrl + C`.
+
+---
+
+# Your first few minutes
+
+1. **Load an example.** Click **⟳ Examples** in the top bar and pick
+   *Bedtime meltdowns*. A finished graph appears — it's your own editable copy,
+   so feel free to change anything.
+2. **Click a node.** The panel on the right shows its notes, its one-line summary
+   ("distillate"), and how confident that summary is.
+3. **Follow the shape.** Lines show how ideas relate: one idea *breaks down* into
+   others, one *answers* another, and a red dashed node is a **gap** — something
+   blocking you.
+4. **Make your own.** Click **＋ New** for a blank project and start with one
+   problem.
+
+## What the colours and shapes mean
+
+| Kind | What it is |
+|---|---|
+| **problem** | A question or goal you want to resolve |
+| **hypothesis** | A claim that *might* be true — something you could argue with |
+| **solution** | A concrete answer to a hypothesis |
+| **gap** | A blocker: something outside your control standing in the way |
+| **seed** | A loose idea, not attached to a problem yet |
+| **synthesis** | Several ideas fused into one new whole |
+
+A **dashed outline** means "not settled yet" — Weave is deliberately honest about
+which of your thinking is still loose.
+
+---
+
+# Connecting an AI (completely optional)
+
+Weave works fully without any AI. If you connect one, it can suggest how to break
+a problem down, what might refute an idea, or what you're missing.
+
+**How it works:** you bring your own key from an AI provider. Weave never
+provides or resells AI — you pay your provider directly, usually a few cents.
+
+1. Click **✦ AI** in the top bar.
+2. Get a key from [openrouter.ai/keys](https://openrouter.ai/keys) (free to sign
+   up; you add credit to use it).
+3. Paste it in and click **Save**. The button shows **✦ AI ✓** when connected.
+
+**Your key is stored only in your own browser** and is sent straight to your AI
+provider. It never passes through any Weave server. Remove it any time with
+**Turn AI off**.
+
+---
+
+# Where your work is saved
+
+Your projects are saved **in your browser, on this computer**. They stay there
+when you close the tab and come back later.
+
+That means: they are **not** synced between devices, and they are **not** in the
+cloud. It also means nobody else can read them.
+
+### ⚠️ Please back up your work
+
+Clearing your browser's history or site data **will delete your Weave projects**.
+There's no copy anywhere else. So:
+
+- **To back up:** click **{ } JSON**. A file downloads — keep it somewhere safe.
+- **To restore, or move to another computer:** click **⬆ Import** and choose that
+  file. It always comes in as a *new* project, so it can never overwrite
+  something you already have.
+- **⬇ Export** is different — that gives you a readable Markdown summary, handy
+  for pasting into a document or another AI. Use **{ } JSON** for real backups.
+
+---
+
+# If something goes wrong
+
+| What you see | What's happening | What to do |
+|---|---|---|
+| **"Could not load the vault"** | You have an older copy of Weave from before this was fixed. | Download the ZIP again from GitHub. |
+| **The page won't load at all** | Wrong address for your command. | `serve` → `localhost:3000`. Python → `localhost:8080`. |
+| **Examples are missing or the picker is empty** | You opened `index.html` by double-clicking. | Use the one-command method above. |
+| **"command not found: npx"** | Node.js isn't installed. | Install [Node.js](https://nodejs.org), or use the Python command. |
+| **"command not found: python3"** | Python isn't installed. | Use the Node command instead. |
+| **A blank page** | The folder is wrong. | Make sure you're in the folder that *contains* `public`, not inside `public` itself. |
+| **My projects vanished** | Browser data was cleared, or you're in a different browser. | Projects live per-browser. Restore from a `{ } JSON` backup if you have one. |
+
+---
+---
+
+# For developers
+
+Everything below is for people who want to self-host, modify, or deploy Weave.
+
+## Run with Docker
 
 ```bash
 docker build -t weave .
 docker run --rm -p 8080:80 weave
 ```
-
-### 3. With the optional server backend (Cloudflare Pages + D1)
-
-Only needed if you want a **hosted, multi-device** instance with a shared
-database. Requires Node 18+ and your own Cloudflare account.
-
-```bash
-npm install
-npm run db:init       # schema
-npm run db:seed       # the "Cut my food spending" graph
-npm run db:projects   # projects table  (required — /api/graph 500s without it)
-npm run db:examples   # the example library
-npm run dev           # wrangler pages dev → http://localhost:8788
-```
-
----
-
-## Your AI key stays yours
-
-Weave's AI is **bring-your-own-key**. Click **✦ AI** in the top bar, paste a key
-from your provider, and it is stored **only in your browser** and sent **directly
-to that provider**. It never touches any Weave server — including this one.
-
-**No key = AI features are simply off.** Everything else (the graph, editing,
-capture, connect, export) works exactly the same without one.
-
-Default provider is [OpenRouter](https://openrouter.ai/keys); any
-OpenAI-compatible endpoint works if it allows browser (CORS) requests.
-
-> Self-hosters *may* optionally set a server-side `OPENROUTER_API_KEY` to offer a
-> fallback for visitors who don't bring their own key — see `.dev.vars.example`.
-> It is not required, and it is not the default path.
-
----
-
-## Where your data lives
-
-A **⛁** button in the project bar shows and switches the active store:
-
-| Mode | Meaning |
-| --- | --- |
-| **⛁ On this device** | The graph lives in this browser (IndexedDB). No server involved. |
-| **⛁ Server** | The graph lives in this deployment's D1 database. |
-
-Weave picks automatically on first load: if this deployment answers `/api/graph`
-it uses the server, otherwise it falls back to device storage. Switching never
-deletes anything on either side — each store keeps its own projects.
-
----
-
-## Nothing is ever trapped
-
-Two exports, for two different jobs:
-
-- **⬇ Export** → Markdown. For *reading* — an AI-readable context file of the
-  whole graph. Lossy by design.
-- **{ } JSON** → a portable bundle. For *moving and backing up*: every row needed
-  to rebuild the project exactly, on any Weave instance.
-
-**⬆ Import** reads a JSON bundle back in. Import always creates a **new project**,
-so a file can never silently overwrite work you already have.
-
-The bundle is a plain, versioned JSON object (`{"weave": 1, project, nodes,
-facets, edges, captures}`) — readable and diffable, not an opaque blob.
-
----
-
-## Deploy
-
-### Any static host
-
-Weave is a static site. Point any host at the **`public/`** directory with **no
-build command** — Cloudflare Pages, Netlify, Vercel, GitHub Pages, S3, or your
-own nginx all work. Users get the full local-first app.
-
-### Cloudflare Pages + D1 (for the optional server mode)
-
-The button at the top of this README reads `wrangler.toml` and provisions the
-resources it declares, including a D1 database.
-
-Deploying by hand instead:
-
-1. Create your **own** D1 database and put its id in `wrangler.toml`:
-
-   ```bash
-   npx wrangler d1 create weave
-   # paste the printed database_id into wrangler.toml → [[d1_databases]].database_id
-   ```
-
-   > ⚠️ The `database_id` committed here points at the original author's
-   > database. You **must** replace it with your own — it is not a credential and
-   > grants no access, but deploys will not find your data until you swap it.
-
-2. Apply the migrations to the remote database:
-
-   ```bash
-   npm run db:init:remote
-   npm run db:seed:remote
-   npm run db:projects:remote
-   npm run db:examples:remote
-   ```
-
-3. In the Cloudflare dashboard → *Workers & Pages* → *Create* → *Pages* →
-   *Connect to Git*. Build command: **none**. Output directory: **`public`**.
-   Under *Settings → Functions → D1 bindings*, bind **`DB`** to your database.
-
-Migrations do **not** run on deploy — apply them with the `:remote` scripts above,
-and again whenever the schema changes.
-
----
 
 ## Architecture
 
@@ -173,11 +177,52 @@ migrations/*.sql       D1 schema, seed, projects, example library
 wrangler.toml          Pages + D1 binding + default model
 ```
 
-The **derivation is the contract**: `_lib/derive.js` (server) and the ported copy
-in the browser produce an identical graph from identical rows, so both backends
-behave the same.
+Weave is a **static site**. Point any host at **`public/`** with **no build
+command** — Cloudflare Pages, Netlify, Vercel, GitHub Pages, S3, or nginx.
 
----
+The **derivation is the contract**: `_lib/derive.js` (server) and its ported copy
+in the browser produce an identical graph from identical rows, so both storage
+backends behave the same.
+
+### Storage modes
+
+A **⛁** button in the project bar shows and switches the active store. Weave
+auto-detects on first load: if the deployment answers `/api/graph` it uses the
+server, otherwise it falls back to device storage. Switching never deletes
+anything on either side.
+
+On a static host you'll see **one `/api/graph` 404** in the browser console per
+page load — that's the deliberate auto-detect probe. It's harmless.
+
+## Optional server mode (Cloudflare Pages + D1)
+
+Only needed for a hosted, multi-device instance with a shared database.
+
+```bash
+npm install
+npm run db:init && npm run db:seed && npm run db:projects && npm run db:examples
+npm run dev            # → http://localhost:8788
+```
+
+To deploy:
+
+1. Create your **own** D1 database and put its id in `wrangler.toml`:
+
+   ```bash
+   npx wrangler d1 create weave
+   ```
+
+   > ⚠️ The `database_id` committed here points at the original author's
+   > database. Replace it with your own — it is not a credential and grants no
+   > access, but deploys won't find your data until you swap it.
+
+2. Apply migrations remotely: `npm run db:init:remote`, `db:seed:remote`,
+   `db:projects:remote`, `db:examples:remote`.
+3. Cloudflare dashboard → *Workers & Pages* → *Pages* → *Connect to Git*. Build
+   command: **none**. Output directory: **`public`**. Bind **`DB`** to your
+   database under *Settings → Functions → D1 bindings*.
+
+Migrations do **not** run on deploy — apply them with the `:remote` scripts.
 
 ## Write ops (`POST /api/mutate`, or the local engine)
 
@@ -195,8 +240,6 @@ behave the same.
 | `importVault` | `{ bundle }` — rebuild a vault from a portable bundle |
 
 Each returns the full re-derived graph, so the client stays in sync.
-
----
 
 ## Contributing
 
