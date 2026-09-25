@@ -861,6 +861,69 @@ function flash(msg){
     document.body.appendChild(el); }
   el.textContent = msg; el.style.opacity='1'; clearTimeout(el._t); el._t = setTimeout(()=>{ el.style.opacity='0'; }, 2800);
 }
+
+/* ---- in-page dialogs (replace window.prompt / window.confirm) --------------
+   Browsers permanently suppress native dialogs for a page once the user ticks
+   "Prevent this page from creating additional dialogs", and some embedded /
+   installed-PWA contexts suppress them outright. When that happens prompt()
+   returns null with no error, and every create/rename action in Weave silently
+   does nothing. These in-page dialogs always work.
+   Keyboard: Enter = OK, Esc = Cancel. Click outside = Cancel. */
+function wvDialog(opts){
+  return new Promise(resolve => {
+    const prev = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(20,20,20,.28);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif';
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--canvas,#fff);color:var(--ink,#141414);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.24);padding:20px 20px 16px;width:min(420px,100%);box-sizing:border-box';
+    const msg = document.createElement('div');
+    msg.style.cssText = 'font-size:13.5px;line-height:1.5;white-space:pre-wrap;margin-bottom:14px';
+    msg.textContent = opts.message || '';
+    card.appendChild(msg);
+    let input = null;
+    if(opts.kind === 'prompt'){
+      input = document.createElement('input');
+      input.type = 'text';
+      input.value = (opts.value == null) ? '' : String(opts.value);
+      input.style.cssText = 'width:100%;box-sizing:border-box;font:inherit;font-size:13.5px;padding:9px 11px;border:1px solid var(--hairline-strong,#c8c8c8);border-radius:7px;background:var(--page,#fff);color:inherit;margin-bottom:14px';
+      card.appendChild(input);
+    }
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+    function mkBtn(label, primary){
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = label;
+      b.style.cssText = 'font:inherit;font-size:12.5px;padding:7px 14px;border-radius:7px;cursor:pointer;border:1px solid var(--hairline-strong,#c8c8c8);'
+        + (primary ? 'background:var(--ink,#141414);color:var(--page,#fff);border-color:var(--ink,#141414)' : 'background:transparent;color:inherit');
+      return b;
+    }
+    const cancelBtn = mkBtn(opts.cancelLabel || 'Cancel', false);
+    const okBtn = mkBtn(opts.okLabel || 'OK', true);
+    row.appendChild(cancelBtn); row.appendChild(okBtn); card.appendChild(row);
+    wrap.appendChild(card); document.body.appendChild(wrap);
+    let done = false;
+    function close(val){
+      if(done) return; done = true;
+      document.removeEventListener('keydown', onKey, true);
+      try { wrap.remove(); } catch(e){}
+      try { if(prev && prev.focus) prev.focus(); } catch(e){}
+      resolve(val);
+    }
+    function accept(){ close(input ? input.value : true); }
+    function cancel(){ close(input ? null : false); }
+    function onKey(ev){
+      if(ev.key === 'Escape'){ ev.preventDefault(); ev.stopPropagation(); cancel(); }
+      else if(ev.key === 'Enter'){ ev.preventDefault(); ev.stopPropagation(); accept(); }
+    }
+    document.addEventListener('keydown', onKey, true);
+    okBtn.addEventListener('click', accept);
+    cancelBtn.addEventListener('click', cancel);
+    wrap.addEventListener('mousedown', ev => { if(ev.target === wrap) cancel(); });
+    setTimeout(() => { if(input){ input.focus(); input.select(); } else okBtn.focus(); }, 0);
+  });
+}
+function wvPrompt(message, value){ return wvDialog({ kind:'prompt', message:message, value:value }); }
+function wvConfirm(message){ return wvDialog({ kind:'confirm', message:message }); }
 async function reload(){
   const g = await WV.graph(); WEAVE_GRAPH = g; ingest(g); applyProject(g); render(); renderInbox();
   if(window.__fitView) window.__fitView(); if(window.__reheat) window.__reheat(0.7);
@@ -2133,7 +2196,7 @@ async function openExamplePicker(){
   m.classList.add('on');
 }
 async function doNewProject(){
-  const name = prompt('Name the new project:', 'Untitled'); if(name === null) return;
+  const name = await wvPrompt('Name the new project:', 'Untitled'); if(name === null) return;
   flash('Creating project…');
   try{ const r = await WV.projectOp('create', { name: name || 'Untitled', from:'blank' }); WV.setProject(r.id); await reload(); flash('New project created.'); }
   catch(e){ flash('failed: ' + e.message); }
@@ -2146,7 +2209,7 @@ async function openProject(id){
   try{ await reload(); }catch(e){ flash('open failed: ' + (e.message||e)); }
 }
 async function deleteProjectFromMenu(id, name){
-  if(!confirm('Delete “' + (name || id) + '”? This cannot be undone.')) return;
+  if(!(await wvConfirm('Delete “' + (name || id) + '”? This cannot be undone.'))) return;
   try{
     await WV.projectOp('delete', { id });
     if(id === (WV.project || 'default')){ WV.setProject(''); await reload(); }
@@ -2188,7 +2251,7 @@ async function openProjectMenu(){
 }
 async function doRename(){
   const cur = (document.getElementById('projName') || {}).textContent || 'Untitled';
-  const name = prompt('Rename project:', cur); if(name === null || !name.trim()) return;
+  const name = await wvPrompt('Rename project:', cur); if(name === null || !name.trim()) return;
   try{ await WV.mutate('renameProject', { name: name.trim() });
     const el = document.getElementById('projName'); if(el) el.textContent = name.trim();
   }catch(e){ flash('rename failed: ' + e.message); }
@@ -2219,9 +2282,9 @@ const KIND_HINT = {
   seed:"Seed — a loose idea, no problem attached yet.  e.g. 'What if the office catered lunch?'",
   synthesis:"Synthesis — what do several ideas combine into?  e.g. 'Hybrid: office cater + 2 home days'"
 };
-function addLinkedNode(srcId, mv){
+async function addLinkedNode(srcId, mv){
   const s = NODES[srcId]; if(!s) return;
-  const title = prompt(mv.prompt || 'Title:', ''); if(title === null || !title.trim()) return;
+  const title = await wvPrompt(mv.prompt || 'Title:', ''); if(title === null || !title.trim()) return;
   const id = 'n' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
   const region = KIND_REGION[mv.kind] || s.region;
   const x = (s.x || 400) + (region === 'create' ? 150 : -150) * (mv.dir === 'in' ? -1 : 1);
@@ -2412,9 +2475,9 @@ function beginConnectFrom(id){
   try{ hint.innerHTML = 'Connect from <b>' + NODES[id].t + '</b> — click the <b class="c">target</b> node · Esc to cancel.'; }catch(e){}
   const cb = document.getElementById('connectBtn'); if(cb){ cb.textContent = '⇢ cancel'; cb.classList.add('on'); }
 }
-function ctxRename(id){
+async function ctxRename(id){
   if(!NODES[id]) return;
-  const t = prompt('Rename node:', NODES[id].t || ''); if(t === null || !t.trim()) return;
+  const t = await wvPrompt('Rename node:', NODES[id].t || ''); if(t === null || !t.trim()) return;
   NODES[id].t = t.trim();
   render(); if(sel && sel.split('.')[0] === id) showThreadFor(id);
   WV.mutate('renameNode', { id, title: t.trim() }).catch(()=>{});
@@ -2429,9 +2492,9 @@ function addDimensionTo(id, name, sem){
   render(); showThreadFor(id); if(window.__reheat) window.__reheat(0.4);
   WV.mutate('addFacet', { node_id:id, name, semantic:sem }).catch(()=>{});
 }
-function ctxAddDim(id){
-  const name = (prompt('Dimension name (e.g. cost, time, effort):', '') || '').trim().toLowerCase(); if(!name) return;
-  const raw = (prompt('Semantic — gating, accumulative, or informational:', 'informational') || '').trim().toLowerCase();
+async function ctxAddDim(id){
+  const name = ((await wvPrompt('Dimension name (e.g. cost, time, effort):', '')) || '').trim().toLowerCase(); if(!name) return;
+  const raw = ((await wvPrompt('Semantic — gating, accumulative, or informational:', 'informational')) || '').trim().toLowerCase();
   const sem = ['gating','accumulative','informational'].includes(raw) ? raw : 'informational';
   addDimensionTo(id, name, sem);
 }
@@ -2781,9 +2844,9 @@ function wireEdgeEditing(){
 
 /* ---- right-click empty canvas → create a node in that area ---- */
 const KIND_NAME = { problem:'Problem', hypothesis:'Hypothesis', solution:'Solution', gap:'Gap / blocker', seed:'Seed', synthesis:'Synthesis' };
-function createFreeNode(kind, x, y){
+async function createFreeNode(kind, x, y){
   const region = KIND_REGION[kind] || 'solve';
-  const title = prompt(KIND_HINT[kind] || 'Title:', ''); if(title === null || !title.trim()) return;
+  const title = await wvPrompt(KIND_HINT[kind] || 'Title:', ''); if(title === null || !title.trim()) return;
   const id = 'n' + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
   NODES[id] = { kind, region, t: title.trim(), x, y, facets: {}, fresh: true };
   THREADS[id] = { eyebrow: kind + ' · ' + id, msgs: [], dist: null, conf: 0, stale: 'freeform' };
@@ -2984,7 +3047,7 @@ async function boot(){
     WEAVE_GRAPH = await WV.graph();
   }catch(err){
     if(err && err.code === 401){
-      const t = prompt('This Weave needs an access token:');
+      const t = await wvPrompt('This Weave needs an access token:', '');
       if(t){ WV.setToken(t); return boot(); }
     }
     document.body.innerHTML = '<div style="font-family:Inter,system-ui,sans-serif;padding:44px;max-width:620px;color:#333;line-height:1.6">' +
@@ -3691,9 +3754,9 @@ line or null}. Terse. No sentences longer than the limits.`;
     b.onclick = async function(){
       const cur = await mode();
       const next = cur === 'local' ? 'server' : 'local';
-      if(!confirm(next === 'server'
+      if(!(await wvConfirm(next === 'server'
         ? 'Switch to the server database?\n\nYour device-stored projects stay on this device — they are not uploaded. You can switch back anytime.'
-        : 'Switch to device-only storage?\n\nYour server projects stay on the server — they are not deleted. Export a .weave.json first if you want to bring one across.')) return;
+        : 'Switch to device-only storage?\n\nYour server projects stay on the server — they are not deleted. Export a .weave.json first if you want to bring one across.'))) return;
       setMode(next);
       try { await reload(); } catch(e){}
       flash(next === 'local' ? 'Storage: this device' : 'Storage: server');
